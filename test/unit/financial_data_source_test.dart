@@ -187,6 +187,108 @@ void main() {
       expect(expense.status, 'confirmed');
     });
 
+    test('planned credit-card expense increases debt when recorded', () async {
+      final String cardId = await account(
+        name: 'Visa',
+        type: 'credit_card',
+        balance: 0,
+        creditLimit: php10000 * 5,
+      );
+      final String expenseId = await dataSource.createExpense(
+        CreateExpenseInput(
+          title: 'Groceries on card',
+          amountMinorUnits: php1000,
+          occurredAt: now,
+          paymentAccountId: cardId,
+        ),
+      );
+
+      await dataSource.confirmExpense(
+        ConfirmExpenseInput(
+          expenseId: expenseId,
+          accountId: cardId,
+          confirmedAt: now,
+          idempotencyKey: 'card-expense-1',
+        ),
+      );
+
+      final card = await (database.select(
+        database.financialAccounts,
+      )..where((row) => row.id.equals(cardId))).getSingle();
+      final transaction =
+          await (database.select(database.transactions)
+                ..where((row) => row.idempotencyKey.equals('card-expense-1')))
+              .getSingle();
+      expect(card.currentBalanceMinorUnits, 0);
+      expect(card.outstandingCreditMinorUnits, php1000);
+      expect(transaction.transactionType, 'credit_card_purchase');
+    });
+
+    test(
+      'expected income edits and cancels without changing account balance',
+      () async {
+        final String accountId = await account(name: 'Bank');
+        final String incomeId = await dataSource.createIncome(
+          CreateIncomeInput(
+            source: 'Salary',
+            amountMinorUnits: php1000,
+            expectedDate: now,
+          ),
+        );
+
+        await dataSource.updateIncome(
+          UpdateIncomeInput(
+            incomeId: incomeId,
+            source: 'Monthly salary',
+            amountMinorUnits: php10000,
+            expectedDate: now,
+            frequency: 'monthly',
+            receivingAccountId: accountId,
+          ),
+        );
+        await dataSource.cancelIncome(incomeId);
+
+        final IncomeRecord income = await (database.select(
+          database.incomeRecords,
+        )..where((row) => row.id.equals(incomeId))).getSingle();
+        expect(income.status, 'cancelled');
+        expect(income.amountMinorUnits, php10000);
+        expect(await balanceOf(accountId), php10000);
+      },
+    );
+
+    test(
+      'planned expense edits and cancels without recording a transaction',
+      () async {
+        final String accountId = await account(name: 'Cash');
+        final String expenseId = await dataSource.createExpense(
+          CreateExpenseInput(
+            title: 'Old title',
+            amountMinorUnits: php100,
+            occurredAt: now,
+          ),
+        );
+        await dataSource.updateExpense(
+          UpdateExpenseInput(
+            expenseId: expenseId,
+            title: 'Updated title',
+            amountMinorUnits: php1000,
+            occurredAt: now,
+            paymentAccountId: accountId,
+          ),
+        );
+        await dataSource.cancelExpense(expenseId);
+
+        final ExpenseRecord expense = await (database.select(
+          database.expenses,
+        )..where((row) => row.id.equals(expenseId))).getSingle();
+        expect(expense.title, 'Updated title');
+        expect(expense.status, 'cancelled');
+        expect(await balanceOf(accountId), php10000);
+        expect(await database.select(database.transactions).get(), isEmpty);
+      },
+    );
+
     test(
       'bill creation does not deduct money; confirmed payment does',
       () async {

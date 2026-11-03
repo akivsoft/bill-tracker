@@ -18,8 +18,21 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.watchFinancialAccounts();
 
   @override
+  Stream<List<FinancialAccount>> watchAllFinancialAccounts() =>
+      _localDataSource.watchAllFinancialAccounts();
+
+  @override
+  Stream<FinancialAccount?> watchFinancialAccount(String accountId) =>
+      _localDataSource.watchFinancialAccount(accountId);
+
+  @override
   Stream<List<FinancialTransactionView>> watchTransactions() =>
       _localDataSource.watchTransactions();
+
+  @override
+  Stream<List<FinancialTransactionView>> watchAccountTransactions(
+    String accountId,
+  ) => _localDataSource.watchAccountTransactions(accountId);
 
   @override
   Stream<List<IncomeEntry>> watchIncome() => _localDataSource.watchIncome();
@@ -63,6 +76,26 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.createAccount(input);
 
   @override
+  Future<void> updateAccount(UpdateAccountInput input) =>
+      _localDataSource.updateAccount(input);
+
+  @override
+  Future<void> setAccountActive(String accountId, bool isActive) =>
+      _localDataSource.setAccountActive(accountId, isActive);
+
+  @override
+  Future<void> archiveAccount(String accountId) =>
+      _localDataSource.archiveAccount(accountId);
+
+  @override
+  Future<void> restoreAccount(String accountId) =>
+      _localDataSource.restoreAccount(accountId);
+
+  @override
+  Future<void> deleteAccount(String accountId) =>
+      _localDataSource.deleteAccount(accountId);
+
+  @override
   Future<String> createCategory(CreateCategoryInput input) =>
       _localDataSource.createCategory(input);
 
@@ -71,8 +104,24 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.createIncome(input);
 
   @override
+  Future<void> updateIncome(UpdateIncomeInput input) =>
+      _localDataSource.updateIncome(input);
+
+  @override
+  Future<void> cancelIncome(String incomeId) =>
+      _localDataSource.cancelIncome(incomeId);
+
+  @override
   Future<String> createExpense(CreateExpenseInput input) =>
       _localDataSource.createExpense(input);
+
+  @override
+  Future<void> updateExpense(UpdateExpenseInput input) =>
+      _localDataSource.updateExpense(input);
+
+  @override
+  Future<void> cancelExpense(String expenseId) =>
+      _localDataSource.cancelExpense(expenseId);
 
   @override
   Future<String> createBill(CreateBillInput input) =>
@@ -105,6 +154,14 @@ final class LocalFinancialRepository implements FinancialRepository {
   @override
   Future<String> confirmExpense(ConfirmExpenseInput input) =>
       _localDataSource.confirmExpense(input);
+
+  @override
+  Future<String> recordIncome(RecordIncomeInput input) =>
+      _localDataSource.recordIncome(input);
+
+  @override
+  Future<String> recordExpense(RecordExpenseInput input) =>
+      _localDataSource.recordExpense(input);
 
   @override
   Future<String> confirmBillPayment(BillPaymentInput input) =>

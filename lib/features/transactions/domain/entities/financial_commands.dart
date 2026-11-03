@@ -8,9 +8,18 @@ final class CreateAccountInput {
     this.currencyCode = 'PHP',
     this.creditLimitMinorUnits = 0,
     this.outstandingCreditMinorUnits = 0,
+    this.openingOutstandingCreditMinorUnits,
     this.statementDate,
     this.paymentDueDate,
+    this.statementBalanceMinorUnits = 0,
+    this.minimumPaymentMinorUnits = 0,
+    this.accountNumberSuffix,
+    this.linkedAccountId,
+    this.customTypeName,
+    this.iconKey,
+    this.colorArgb,
     this.notes,
+    this.allowNegativeBalance = false,
   });
 
   final String? userId;
@@ -21,8 +30,93 @@ final class CreateAccountInput {
   final String currencyCode;
   final int creditLimitMinorUnits;
   final int outstandingCreditMinorUnits;
+  final int? openingOutstandingCreditMinorUnits;
   final DateTime? statementDate;
   final DateTime? paymentDueDate;
+  final int statementBalanceMinorUnits;
+  final int minimumPaymentMinorUnits;
+  final String? accountNumberSuffix;
+  final String? linkedAccountId;
+  final String? customTypeName;
+  final String? iconKey;
+  final int? colorArgb;
+  final String? notes;
+  final bool allowNegativeBalance;
+}
+
+final class UpdateAccountInput {
+  const UpdateAccountInput({
+    required this.accountId,
+    required this.name,
+    this.provider,
+    this.accountNumberSuffix,
+    this.linkedAccountId,
+    this.customTypeName,
+    this.iconKey,
+    this.colorArgb,
+    this.statementBalanceMinorUnits = 0,
+    this.minimumPaymentMinorUnits = 0,
+    this.statementDate,
+    this.paymentDueDate,
+    this.notes,
+    this.allowNegativeBalance = false,
+    this.creditLimitMinorUnits,
+  });
+
+  final String accountId;
+  final String name;
+  final String? provider;
+  final String? accountNumberSuffix;
+  final String? linkedAccountId;
+  final String? customTypeName;
+  final String? iconKey;
+  final int? colorArgb;
+  final int statementBalanceMinorUnits;
+  final int minimumPaymentMinorUnits;
+  final DateTime? statementDate;
+  final DateTime? paymentDueDate;
+  final String? notes;
+  final bool allowNegativeBalance;
+  final int? creditLimitMinorUnits;
+}
+
+final class RecordIncomeInput {
+  const RecordIncomeInput({
+    required this.source,
+    required this.accountId,
+    required this.amountMinorUnits,
+    required this.occurredAt,
+    required this.idempotencyKey,
+    this.category,
+    this.notes,
+  });
+
+  final String source;
+  final String accountId;
+  final int amountMinorUnits;
+  final DateTime occurredAt;
+  final String idempotencyKey;
+  final String? category;
+  final String? notes;
+}
+
+final class RecordExpenseInput {
+  const RecordExpenseInput({
+    required this.title,
+    required this.accountId,
+    required this.amountMinorUnits,
+    required this.occurredAt,
+    required this.idempotencyKey,
+    this.category,
+    this.notes,
+  });
+
+  final String title;
+  final String accountId;
+  final int amountMinorUnits;
+  final DateTime occurredAt;
+  final String idempotencyKey;
+  final String? category;
   final String? notes;
 }
 
@@ -47,6 +141,7 @@ final class CreateIncomeInput {
     required this.expectedDate,
     this.userId,
     this.sourceId,
+    this.category,
     this.currencyCode = 'PHP',
     this.frequency = 'one_time',
     this.receivingAccountId,
@@ -55,11 +150,34 @@ final class CreateIncomeInput {
 
   final String? userId;
   final String? sourceId;
+  final String? category;
   final String source;
   final int amountMinorUnits;
   final String currencyCode;
   final DateTime expectedDate;
   final String frequency;
+  final String? receivingAccountId;
+  final String? notes;
+}
+
+final class UpdateIncomeInput {
+  const UpdateIncomeInput({
+    required this.incomeId,
+    required this.source,
+    required this.amountMinorUnits,
+    required this.expectedDate,
+    required this.frequency,
+    this.category,
+    this.receivingAccountId,
+    this.notes,
+  });
+
+  final String incomeId;
+  final String source;
+  final int amountMinorUnits;
+  final DateTime expectedDate;
+  final String frequency;
+  final String? category;
   final String? receivingAccountId;
   final String? notes;
 }
@@ -79,6 +197,32 @@ final class CreateExpenseInput {
   });
 
   final String? userId;
+  final String title;
+  final int amountMinorUnits;
+  final String currencyCode;
+  final String? categoryId;
+  final DateTime occurredAt;
+  final String? paymentAccountId;
+  final String? description;
+  final String? attachmentReference;
+  final String? recurrenceConfiguration;
+}
+
+final class UpdateExpenseInput {
+  const UpdateExpenseInput({
+    required this.expenseId,
+    required this.title,
+    required this.amountMinorUnits,
+    required this.occurredAt,
+    this.currencyCode = 'PHP',
+    this.categoryId,
+    this.paymentAccountId,
+    this.description,
+    this.attachmentReference,
+    this.recurrenceConfiguration,
+  });
+
+  final String expenseId;
   final String title;
   final int amountMinorUnits;
   final String currencyCode;

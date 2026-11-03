@@ -41,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: AppConfig.databaseName));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -49,6 +49,48 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (Migrator migrator, int from, int to) async {
       if (from < 2) await _upgradeToVersion2(migrator);
       if (from < 3) await migrator.createTable(appPreferencesTable);
+      if (from < 4 && from >= 2) {
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.statementBalanceMinorUnits,
+        );
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.minimumPaymentMinorUnits,
+        );
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.openingOutstandingCreditMinorUnits,
+        );
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.accountNumberSuffix,
+        );
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.linkedAccountId,
+        );
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.customTypeName,
+        );
+        await migrator.addColumn(financialAccounts, financialAccounts.iconKey);
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.colorArgb,
+        );
+        await migrator.addColumn(
+          financialAccounts,
+          financialAccounts.allowNegativeBalance,
+        );
+      }
+      if (from < 4) {
+        await customStatement(
+          'UPDATE financial_accounts '
+          'SET opening_outstanding_credit_minor_units = outstanding_credit_minor_units '
+          "WHERE account_type = 'credit_card'",
+        );
+      }
     },
     beforeOpen: (OpeningDetails details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -77,6 +119,15 @@ class AppDatabase extends _$AppDatabase {
           financialAccounts.paymentDueDate,
           financialAccounts.notes,
           financialAccounts.isActive,
+          financialAccounts.openingOutstandingCreditMinorUnits,
+          financialAccounts.statementBalanceMinorUnits,
+          financialAccounts.minimumPaymentMinorUnits,
+          financialAccounts.accountNumberSuffix,
+          financialAccounts.linkedAccountId,
+          financialAccounts.customTypeName,
+          financialAccounts.iconKey,
+          financialAccounts.colorArgb,
+          financialAccounts.allowNegativeBalance,
         ],
         columnTransformer: <GeneratedColumn, Expression>{
           financialAccounts.currentBalanceMinorUnits:

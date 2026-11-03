@@ -1518,6 +1518,42 @@ class $FinancialAccountsTable extends FinancialAccounts
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       );
+  static const VerificationMeta _openingOutstandingCreditMinorUnitsMeta =
+      const VerificationMeta('openingOutstandingCreditMinorUnits');
+  @override
+  late final GeneratedColumn<int> openingOutstandingCreditMinorUnits =
+      GeneratedColumn<int>(
+        'opening_outstanding_credit_minor_units',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _statementBalanceMinorUnitsMeta =
+      const VerificationMeta('statementBalanceMinorUnits');
+  @override
+  late final GeneratedColumn<int> statementBalanceMinorUnits =
+      GeneratedColumn<int>(
+        'statement_balance_minor_units',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
+  static const VerificationMeta _minimumPaymentMinorUnitsMeta =
+      const VerificationMeta('minimumPaymentMinorUnits');
+  @override
+  late final GeneratedColumn<int> minimumPaymentMinorUnits =
+      GeneratedColumn<int>(
+        'minimum_payment_minor_units',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
   static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
     'currencyCode',
   );
@@ -1554,6 +1590,61 @@ class $FinancialAccountsTable extends FinancialAccounts
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _accountNumberSuffixMeta =
+      const VerificationMeta('accountNumberSuffix');
+  @override
+  late final GeneratedColumn<String> accountNumberSuffix =
+      GeneratedColumn<String>(
+        'account_number_suffix',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _linkedAccountIdMeta = const VerificationMeta(
+    'linkedAccountId',
+  );
+  @override
+  late final GeneratedColumn<String> linkedAccountId = GeneratedColumn<String>(
+    'linked_account_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _customTypeNameMeta = const VerificationMeta(
+    'customTypeName',
+  );
+  @override
+  late final GeneratedColumn<String> customTypeName = GeneratedColumn<String>(
+    'custom_type_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _iconKeyMeta = const VerificationMeta(
+    'iconKey',
+  );
+  @override
+  late final GeneratedColumn<String> iconKey = GeneratedColumn<String>(
+    'icon_key',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _colorArgbMeta = const VerificationMeta(
+    'colorArgb',
+  );
+  @override
+  late final GeneratedColumn<int> colorArgb = GeneratedColumn<int>(
+    'color_argb',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _notesMeta = const VerificationMeta('notes');
   @override
   late final GeneratedColumn<String> notes = GeneratedColumn<String>(
@@ -1562,6 +1653,20 @@ class $FinancialAccountsTable extends FinancialAccounts
     true,
     type: DriftSqlType.string,
     requiredDuringInsert: false,
+  );
+  static const VerificationMeta _allowNegativeBalanceMeta =
+      const VerificationMeta('allowNegativeBalance');
+  @override
+  late final GeneratedColumn<bool> allowNegativeBalance = GeneratedColumn<bool>(
+    'allow_negative_balance',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("allow_negative_balance" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
   );
   static const VerificationMeta _isActiveMeta = const VerificationMeta(
     'isActive',
@@ -1657,10 +1762,19 @@ class $FinancialAccountsTable extends FinancialAccounts
     currentBalanceMinorUnits,
     creditLimitMinorUnits,
     outstandingCreditMinorUnits,
+    openingOutstandingCreditMinorUnits,
+    statementBalanceMinorUnits,
+    minimumPaymentMinorUnits,
     currencyCode,
     statementDate,
     paymentDueDate,
+    accountNumberSuffix,
+    linkedAccountId,
+    customTypeName,
+    iconKey,
+    colorArgb,
     notes,
+    allowNegativeBalance,
     isActive,
     createdAt,
     updatedAt,
@@ -1755,6 +1869,33 @@ class $FinancialAccountsTable extends FinancialAccounts
         ),
       );
     }
+    if (data.containsKey('opening_outstanding_credit_minor_units')) {
+      context.handle(
+        _openingOutstandingCreditMinorUnitsMeta,
+        openingOutstandingCreditMinorUnits.isAcceptableOrUnknown(
+          data['opening_outstanding_credit_minor_units']!,
+          _openingOutstandingCreditMinorUnitsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('statement_balance_minor_units')) {
+      context.handle(
+        _statementBalanceMinorUnitsMeta,
+        statementBalanceMinorUnits.isAcceptableOrUnknown(
+          data['statement_balance_minor_units']!,
+          _statementBalanceMinorUnitsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('minimum_payment_minor_units')) {
+      context.handle(
+        _minimumPaymentMinorUnitsMeta,
+        minimumPaymentMinorUnits.isAcceptableOrUnknown(
+          data['minimum_payment_minor_units']!,
+          _minimumPaymentMinorUnitsMeta,
+        ),
+      );
+    }
     if (data.containsKey('currency_code')) {
       context.handle(
         _currencyCodeMeta,
@@ -1782,10 +1923,58 @@ class $FinancialAccountsTable extends FinancialAccounts
         ),
       );
     }
+    if (data.containsKey('account_number_suffix')) {
+      context.handle(
+        _accountNumberSuffixMeta,
+        accountNumberSuffix.isAcceptableOrUnknown(
+          data['account_number_suffix']!,
+          _accountNumberSuffixMeta,
+        ),
+      );
+    }
+    if (data.containsKey('linked_account_id')) {
+      context.handle(
+        _linkedAccountIdMeta,
+        linkedAccountId.isAcceptableOrUnknown(
+          data['linked_account_id']!,
+          _linkedAccountIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('custom_type_name')) {
+      context.handle(
+        _customTypeNameMeta,
+        customTypeName.isAcceptableOrUnknown(
+          data['custom_type_name']!,
+          _customTypeNameMeta,
+        ),
+      );
+    }
+    if (data.containsKey('icon_key')) {
+      context.handle(
+        _iconKeyMeta,
+        iconKey.isAcceptableOrUnknown(data['icon_key']!, _iconKeyMeta),
+      );
+    }
+    if (data.containsKey('color_argb')) {
+      context.handle(
+        _colorArgbMeta,
+        colorArgb.isAcceptableOrUnknown(data['color_argb']!, _colorArgbMeta),
+      );
+    }
     if (data.containsKey('notes')) {
       context.handle(
         _notesMeta,
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('allow_negative_balance')) {
+      context.handle(
+        _allowNegativeBalanceMeta,
+        allowNegativeBalance.isAcceptableOrUnknown(
+          data['allow_negative_balance']!,
+          _allowNegativeBalanceMeta,
+        ),
       );
     }
     if (data.containsKey('is_active')) {
@@ -1885,6 +2074,18 @@ class $FinancialAccountsTable extends FinancialAccounts
         DriftSqlType.int,
         data['${effectivePrefix}outstanding_credit_minor_units'],
       )!,
+      openingOutstandingCreditMinorUnits: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}opening_outstanding_credit_minor_units'],
+      )!,
+      statementBalanceMinorUnits: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}statement_balance_minor_units'],
+      )!,
+      minimumPaymentMinorUnits: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}minimum_payment_minor_units'],
+      )!,
       currencyCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}currency_code'],
@@ -1897,10 +2098,34 @@ class $FinancialAccountsTable extends FinancialAccounts
         DriftSqlType.dateTime,
         data['${effectivePrefix}payment_due_date'],
       ),
+      accountNumberSuffix: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}account_number_suffix'],
+      ),
+      linkedAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}linked_account_id'],
+      ),
+      customTypeName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}custom_type_name'],
+      ),
+      iconKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}icon_key'],
+      ),
+      colorArgb: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}color_argb'],
+      ),
       notes: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       ),
+      allowNegativeBalance: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}allow_negative_balance'],
+      )!,
       isActive: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}is_active'],
@@ -1949,10 +2174,19 @@ class FinancialAccountRecord extends DataClass
   final int currentBalanceMinorUnits;
   final int creditLimitMinorUnits;
   final int outstandingCreditMinorUnits;
+  final int openingOutstandingCreditMinorUnits;
+  final int statementBalanceMinorUnits;
+  final int minimumPaymentMinorUnits;
   final String currencyCode;
   final DateTime? statementDate;
   final DateTime? paymentDueDate;
+  final String? accountNumberSuffix;
+  final String? linkedAccountId;
+  final String? customTypeName;
+  final String? iconKey;
+  final int? colorArgb;
   final String? notes;
+  final bool allowNegativeBalance;
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -1970,10 +2204,19 @@ class FinancialAccountRecord extends DataClass
     required this.currentBalanceMinorUnits,
     required this.creditLimitMinorUnits,
     required this.outstandingCreditMinorUnits,
+    required this.openingOutstandingCreditMinorUnits,
+    required this.statementBalanceMinorUnits,
+    required this.minimumPaymentMinorUnits,
     required this.currencyCode,
     this.statementDate,
     this.paymentDueDate,
+    this.accountNumberSuffix,
+    this.linkedAccountId,
+    this.customTypeName,
+    this.iconKey,
+    this.colorArgb,
     this.notes,
+    required this.allowNegativeBalance,
     required this.isActive,
     required this.createdAt,
     required this.updatedAt,
@@ -2004,6 +2247,15 @@ class FinancialAccountRecord extends DataClass
     map['outstanding_credit_minor_units'] = Variable<int>(
       outstandingCreditMinorUnits,
     );
+    map['opening_outstanding_credit_minor_units'] = Variable<int>(
+      openingOutstandingCreditMinorUnits,
+    );
+    map['statement_balance_minor_units'] = Variable<int>(
+      statementBalanceMinorUnits,
+    );
+    map['minimum_payment_minor_units'] = Variable<int>(
+      minimumPaymentMinorUnits,
+    );
     map['currency_code'] = Variable<String>(currencyCode);
     if (!nullToAbsent || statementDate != null) {
       map['statement_date'] = Variable<DateTime>(statementDate);
@@ -2011,9 +2263,25 @@ class FinancialAccountRecord extends DataClass
     if (!nullToAbsent || paymentDueDate != null) {
       map['payment_due_date'] = Variable<DateTime>(paymentDueDate);
     }
+    if (!nullToAbsent || accountNumberSuffix != null) {
+      map['account_number_suffix'] = Variable<String>(accountNumberSuffix);
+    }
+    if (!nullToAbsent || linkedAccountId != null) {
+      map['linked_account_id'] = Variable<String>(linkedAccountId);
+    }
+    if (!nullToAbsent || customTypeName != null) {
+      map['custom_type_name'] = Variable<String>(customTypeName);
+    }
+    if (!nullToAbsent || iconKey != null) {
+      map['icon_key'] = Variable<String>(iconKey);
+    }
+    if (!nullToAbsent || colorArgb != null) {
+      map['color_argb'] = Variable<int>(colorArgb);
+    }
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
     }
+    map['allow_negative_balance'] = Variable<bool>(allowNegativeBalance);
     map['is_active'] = Variable<bool>(isActive);
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -2043,6 +2311,11 @@ class FinancialAccountRecord extends DataClass
       currentBalanceMinorUnits: Value(currentBalanceMinorUnits),
       creditLimitMinorUnits: Value(creditLimitMinorUnits),
       outstandingCreditMinorUnits: Value(outstandingCreditMinorUnits),
+      openingOutstandingCreditMinorUnits: Value(
+        openingOutstandingCreditMinorUnits,
+      ),
+      statementBalanceMinorUnits: Value(statementBalanceMinorUnits),
+      minimumPaymentMinorUnits: Value(minimumPaymentMinorUnits),
       currencyCode: Value(currencyCode),
       statementDate: statementDate == null && nullToAbsent
           ? const Value.absent()
@@ -2050,9 +2323,25 @@ class FinancialAccountRecord extends DataClass
       paymentDueDate: paymentDueDate == null && nullToAbsent
           ? const Value.absent()
           : Value(paymentDueDate),
+      accountNumberSuffix: accountNumberSuffix == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountNumberSuffix),
+      linkedAccountId: linkedAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(linkedAccountId),
+      customTypeName: customTypeName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(customTypeName),
+      iconKey: iconKey == null && nullToAbsent
+          ? const Value.absent()
+          : Value(iconKey),
+      colorArgb: colorArgb == null && nullToAbsent
+          ? const Value.absent()
+          : Value(colorArgb),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
           : Value(notes),
+      allowNegativeBalance: Value(allowNegativeBalance),
       isActive: Value(isActive),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
@@ -2090,10 +2379,29 @@ class FinancialAccountRecord extends DataClass
       outstandingCreditMinorUnits: serializer.fromJson<int>(
         json['outstandingCreditMinorUnits'],
       ),
+      openingOutstandingCreditMinorUnits: serializer.fromJson<int>(
+        json['openingOutstandingCreditMinorUnits'],
+      ),
+      statementBalanceMinorUnits: serializer.fromJson<int>(
+        json['statementBalanceMinorUnits'],
+      ),
+      minimumPaymentMinorUnits: serializer.fromJson<int>(
+        json['minimumPaymentMinorUnits'],
+      ),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
       statementDate: serializer.fromJson<DateTime?>(json['statementDate']),
       paymentDueDate: serializer.fromJson<DateTime?>(json['paymentDueDate']),
+      accountNumberSuffix: serializer.fromJson<String?>(
+        json['accountNumberSuffix'],
+      ),
+      linkedAccountId: serializer.fromJson<String?>(json['linkedAccountId']),
+      customTypeName: serializer.fromJson<String?>(json['customTypeName']),
+      iconKey: serializer.fromJson<String?>(json['iconKey']),
+      colorArgb: serializer.fromJson<int?>(json['colorArgb']),
       notes: serializer.fromJson<String?>(json['notes']),
+      allowNegativeBalance: serializer.fromJson<bool>(
+        json['allowNegativeBalance'],
+      ),
       isActive: serializer.fromJson<bool>(json['isActive']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -2122,10 +2430,25 @@ class FinancialAccountRecord extends DataClass
       'outstandingCreditMinorUnits': serializer.toJson<int>(
         outstandingCreditMinorUnits,
       ),
+      'openingOutstandingCreditMinorUnits': serializer.toJson<int>(
+        openingOutstandingCreditMinorUnits,
+      ),
+      'statementBalanceMinorUnits': serializer.toJson<int>(
+        statementBalanceMinorUnits,
+      ),
+      'minimumPaymentMinorUnits': serializer.toJson<int>(
+        minimumPaymentMinorUnits,
+      ),
       'currencyCode': serializer.toJson<String>(currencyCode),
       'statementDate': serializer.toJson<DateTime?>(statementDate),
       'paymentDueDate': serializer.toJson<DateTime?>(paymentDueDate),
+      'accountNumberSuffix': serializer.toJson<String?>(accountNumberSuffix),
+      'linkedAccountId': serializer.toJson<String?>(linkedAccountId),
+      'customTypeName': serializer.toJson<String?>(customTypeName),
+      'iconKey': serializer.toJson<String?>(iconKey),
+      'colorArgb': serializer.toJson<int?>(colorArgb),
       'notes': serializer.toJson<String?>(notes),
+      'allowNegativeBalance': serializer.toJson<bool>(allowNegativeBalance),
       'isActive': serializer.toJson<bool>(isActive),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -2146,10 +2469,19 @@ class FinancialAccountRecord extends DataClass
     int? currentBalanceMinorUnits,
     int? creditLimitMinorUnits,
     int? outstandingCreditMinorUnits,
+    int? openingOutstandingCreditMinorUnits,
+    int? statementBalanceMinorUnits,
+    int? minimumPaymentMinorUnits,
     String? currencyCode,
     Value<DateTime?> statementDate = const Value.absent(),
     Value<DateTime?> paymentDueDate = const Value.absent(),
+    Value<String?> accountNumberSuffix = const Value.absent(),
+    Value<String?> linkedAccountId = const Value.absent(),
+    Value<String?> customTypeName = const Value.absent(),
+    Value<String?> iconKey = const Value.absent(),
+    Value<int?> colorArgb = const Value.absent(),
     Value<String?> notes = const Value.absent(),
+    bool? allowNegativeBalance,
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -2170,6 +2502,13 @@ class FinancialAccountRecord extends DataClass
     creditLimitMinorUnits: creditLimitMinorUnits ?? this.creditLimitMinorUnits,
     outstandingCreditMinorUnits:
         outstandingCreditMinorUnits ?? this.outstandingCreditMinorUnits,
+    openingOutstandingCreditMinorUnits:
+        openingOutstandingCreditMinorUnits ??
+        this.openingOutstandingCreditMinorUnits,
+    statementBalanceMinorUnits:
+        statementBalanceMinorUnits ?? this.statementBalanceMinorUnits,
+    minimumPaymentMinorUnits:
+        minimumPaymentMinorUnits ?? this.minimumPaymentMinorUnits,
     currencyCode: currencyCode ?? this.currencyCode,
     statementDate: statementDate.present
         ? statementDate.value
@@ -2177,7 +2516,19 @@ class FinancialAccountRecord extends DataClass
     paymentDueDate: paymentDueDate.present
         ? paymentDueDate.value
         : this.paymentDueDate,
+    accountNumberSuffix: accountNumberSuffix.present
+        ? accountNumberSuffix.value
+        : this.accountNumberSuffix,
+    linkedAccountId: linkedAccountId.present
+        ? linkedAccountId.value
+        : this.linkedAccountId,
+    customTypeName: customTypeName.present
+        ? customTypeName.value
+        : this.customTypeName,
+    iconKey: iconKey.present ? iconKey.value : this.iconKey,
+    colorArgb: colorArgb.present ? colorArgb.value : this.colorArgb,
     notes: notes.present ? notes.value : this.notes,
+    allowNegativeBalance: allowNegativeBalance ?? this.allowNegativeBalance,
     isActive: isActive ?? this.isActive,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
@@ -2209,6 +2560,16 @@ class FinancialAccountRecord extends DataClass
       outstandingCreditMinorUnits: data.outstandingCreditMinorUnits.present
           ? data.outstandingCreditMinorUnits.value
           : this.outstandingCreditMinorUnits,
+      openingOutstandingCreditMinorUnits:
+          data.openingOutstandingCreditMinorUnits.present
+          ? data.openingOutstandingCreditMinorUnits.value
+          : this.openingOutstandingCreditMinorUnits,
+      statementBalanceMinorUnits: data.statementBalanceMinorUnits.present
+          ? data.statementBalanceMinorUnits.value
+          : this.statementBalanceMinorUnits,
+      minimumPaymentMinorUnits: data.minimumPaymentMinorUnits.present
+          ? data.minimumPaymentMinorUnits.value
+          : this.minimumPaymentMinorUnits,
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
@@ -2218,7 +2579,21 @@ class FinancialAccountRecord extends DataClass
       paymentDueDate: data.paymentDueDate.present
           ? data.paymentDueDate.value
           : this.paymentDueDate,
+      accountNumberSuffix: data.accountNumberSuffix.present
+          ? data.accountNumberSuffix.value
+          : this.accountNumberSuffix,
+      linkedAccountId: data.linkedAccountId.present
+          ? data.linkedAccountId.value
+          : this.linkedAccountId,
+      customTypeName: data.customTypeName.present
+          ? data.customTypeName.value
+          : this.customTypeName,
+      iconKey: data.iconKey.present ? data.iconKey.value : this.iconKey,
+      colorArgb: data.colorArgb.present ? data.colorArgb.value : this.colorArgb,
       notes: data.notes.present ? data.notes.value : this.notes,
+      allowNegativeBalance: data.allowNegativeBalance.present
+          ? data.allowNegativeBalance.value
+          : this.allowNegativeBalance,
       isActive: data.isActive.present ? data.isActive.value : this.isActive,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -2247,10 +2622,21 @@ class FinancialAccountRecord extends DataClass
           ..write('currentBalanceMinorUnits: $currentBalanceMinorUnits, ')
           ..write('creditLimitMinorUnits: $creditLimitMinorUnits, ')
           ..write('outstandingCreditMinorUnits: $outstandingCreditMinorUnits, ')
+          ..write(
+            'openingOutstandingCreditMinorUnits: $openingOutstandingCreditMinorUnits, ',
+          )
+          ..write('statementBalanceMinorUnits: $statementBalanceMinorUnits, ')
+          ..write('minimumPaymentMinorUnits: $minimumPaymentMinorUnits, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('statementDate: $statementDate, ')
           ..write('paymentDueDate: $paymentDueDate, ')
+          ..write('accountNumberSuffix: $accountNumberSuffix, ')
+          ..write('linkedAccountId: $linkedAccountId, ')
+          ..write('customTypeName: $customTypeName, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorArgb: $colorArgb, ')
           ..write('notes: $notes, ')
+          ..write('allowNegativeBalance: $allowNegativeBalance, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -2263,7 +2649,7 @@ class FinancialAccountRecord extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     userId,
     name,
@@ -2273,10 +2659,19 @@ class FinancialAccountRecord extends DataClass
     currentBalanceMinorUnits,
     creditLimitMinorUnits,
     outstandingCreditMinorUnits,
+    openingOutstandingCreditMinorUnits,
+    statementBalanceMinorUnits,
+    minimumPaymentMinorUnits,
     currencyCode,
     statementDate,
     paymentDueDate,
+    accountNumberSuffix,
+    linkedAccountId,
+    customTypeName,
+    iconKey,
+    colorArgb,
     notes,
+    allowNegativeBalance,
     isActive,
     createdAt,
     updatedAt,
@@ -2284,7 +2679,7 @@ class FinancialAccountRecord extends DataClass
     localVersion,
     serverVersion,
     syncState,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -2299,10 +2694,20 @@ class FinancialAccountRecord extends DataClass
           other.creditLimitMinorUnits == this.creditLimitMinorUnits &&
           other.outstandingCreditMinorUnits ==
               this.outstandingCreditMinorUnits &&
+          other.openingOutstandingCreditMinorUnits ==
+              this.openingOutstandingCreditMinorUnits &&
+          other.statementBalanceMinorUnits == this.statementBalanceMinorUnits &&
+          other.minimumPaymentMinorUnits == this.minimumPaymentMinorUnits &&
           other.currencyCode == this.currencyCode &&
           other.statementDate == this.statementDate &&
           other.paymentDueDate == this.paymentDueDate &&
+          other.accountNumberSuffix == this.accountNumberSuffix &&
+          other.linkedAccountId == this.linkedAccountId &&
+          other.customTypeName == this.customTypeName &&
+          other.iconKey == this.iconKey &&
+          other.colorArgb == this.colorArgb &&
           other.notes == this.notes &&
+          other.allowNegativeBalance == this.allowNegativeBalance &&
           other.isActive == this.isActive &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt &&
@@ -2323,10 +2728,19 @@ class FinancialAccountsCompanion
   final Value<int> currentBalanceMinorUnits;
   final Value<int> creditLimitMinorUnits;
   final Value<int> outstandingCreditMinorUnits;
+  final Value<int> openingOutstandingCreditMinorUnits;
+  final Value<int> statementBalanceMinorUnits;
+  final Value<int> minimumPaymentMinorUnits;
   final Value<String> currencyCode;
   final Value<DateTime?> statementDate;
   final Value<DateTime?> paymentDueDate;
+  final Value<String?> accountNumberSuffix;
+  final Value<String?> linkedAccountId;
+  final Value<String?> customTypeName;
+  final Value<String?> iconKey;
+  final Value<int?> colorArgb;
   final Value<String?> notes;
+  final Value<bool> allowNegativeBalance;
   final Value<bool> isActive;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -2345,10 +2759,19 @@ class FinancialAccountsCompanion
     this.currentBalanceMinorUnits = const Value.absent(),
     this.creditLimitMinorUnits = const Value.absent(),
     this.outstandingCreditMinorUnits = const Value.absent(),
+    this.openingOutstandingCreditMinorUnits = const Value.absent(),
+    this.statementBalanceMinorUnits = const Value.absent(),
+    this.minimumPaymentMinorUnits = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.statementDate = const Value.absent(),
     this.paymentDueDate = const Value.absent(),
+    this.accountNumberSuffix = const Value.absent(),
+    this.linkedAccountId = const Value.absent(),
+    this.customTypeName = const Value.absent(),
+    this.iconKey = const Value.absent(),
+    this.colorArgb = const Value.absent(),
     this.notes = const Value.absent(),
+    this.allowNegativeBalance = const Value.absent(),
     this.isActive = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -2368,10 +2791,19 @@ class FinancialAccountsCompanion
     this.currentBalanceMinorUnits = const Value.absent(),
     this.creditLimitMinorUnits = const Value.absent(),
     this.outstandingCreditMinorUnits = const Value.absent(),
+    this.openingOutstandingCreditMinorUnits = const Value.absent(),
+    this.statementBalanceMinorUnits = const Value.absent(),
+    this.minimumPaymentMinorUnits = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.statementDate = const Value.absent(),
     this.paymentDueDate = const Value.absent(),
+    this.accountNumberSuffix = const Value.absent(),
+    this.linkedAccountId = const Value.absent(),
+    this.customTypeName = const Value.absent(),
+    this.iconKey = const Value.absent(),
+    this.colorArgb = const Value.absent(),
     this.notes = const Value.absent(),
+    this.allowNegativeBalance = const Value.absent(),
     this.isActive = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -2396,10 +2828,19 @@ class FinancialAccountsCompanion
     Expression<int>? currentBalanceMinorUnits,
     Expression<int>? creditLimitMinorUnits,
     Expression<int>? outstandingCreditMinorUnits,
+    Expression<int>? openingOutstandingCreditMinorUnits,
+    Expression<int>? statementBalanceMinorUnits,
+    Expression<int>? minimumPaymentMinorUnits,
     Expression<String>? currencyCode,
     Expression<DateTime>? statementDate,
     Expression<DateTime>? paymentDueDate,
+    Expression<String>? accountNumberSuffix,
+    Expression<String>? linkedAccountId,
+    Expression<String>? customTypeName,
+    Expression<String>? iconKey,
+    Expression<int>? colorArgb,
     Expression<String>? notes,
+    Expression<bool>? allowNegativeBalance,
     Expression<bool>? isActive,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -2423,10 +2864,25 @@ class FinancialAccountsCompanion
         'credit_limit_minor_units': creditLimitMinorUnits,
       if (outstandingCreditMinorUnits != null)
         'outstanding_credit_minor_units': outstandingCreditMinorUnits,
+      if (openingOutstandingCreditMinorUnits != null)
+        'opening_outstanding_credit_minor_units':
+            openingOutstandingCreditMinorUnits,
+      if (statementBalanceMinorUnits != null)
+        'statement_balance_minor_units': statementBalanceMinorUnits,
+      if (minimumPaymentMinorUnits != null)
+        'minimum_payment_minor_units': minimumPaymentMinorUnits,
       if (currencyCode != null) 'currency_code': currencyCode,
       if (statementDate != null) 'statement_date': statementDate,
       if (paymentDueDate != null) 'payment_due_date': paymentDueDate,
+      if (accountNumberSuffix != null)
+        'account_number_suffix': accountNumberSuffix,
+      if (linkedAccountId != null) 'linked_account_id': linkedAccountId,
+      if (customTypeName != null) 'custom_type_name': customTypeName,
+      if (iconKey != null) 'icon_key': iconKey,
+      if (colorArgb != null) 'color_argb': colorArgb,
       if (notes != null) 'notes': notes,
+      if (allowNegativeBalance != null)
+        'allow_negative_balance': allowNegativeBalance,
       if (isActive != null) 'is_active': isActive,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -2448,10 +2904,19 @@ class FinancialAccountsCompanion
     Value<int>? currentBalanceMinorUnits,
     Value<int>? creditLimitMinorUnits,
     Value<int>? outstandingCreditMinorUnits,
+    Value<int>? openingOutstandingCreditMinorUnits,
+    Value<int>? statementBalanceMinorUnits,
+    Value<int>? minimumPaymentMinorUnits,
     Value<String>? currencyCode,
     Value<DateTime?>? statementDate,
     Value<DateTime?>? paymentDueDate,
+    Value<String?>? accountNumberSuffix,
+    Value<String?>? linkedAccountId,
+    Value<String?>? customTypeName,
+    Value<String?>? iconKey,
+    Value<int?>? colorArgb,
     Value<String?>? notes,
+    Value<bool>? allowNegativeBalance,
     Value<bool>? isActive,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
@@ -2475,10 +2940,23 @@ class FinancialAccountsCompanion
           creditLimitMinorUnits ?? this.creditLimitMinorUnits,
       outstandingCreditMinorUnits:
           outstandingCreditMinorUnits ?? this.outstandingCreditMinorUnits,
+      openingOutstandingCreditMinorUnits:
+          openingOutstandingCreditMinorUnits ??
+          this.openingOutstandingCreditMinorUnits,
+      statementBalanceMinorUnits:
+          statementBalanceMinorUnits ?? this.statementBalanceMinorUnits,
+      minimumPaymentMinorUnits:
+          minimumPaymentMinorUnits ?? this.minimumPaymentMinorUnits,
       currencyCode: currencyCode ?? this.currencyCode,
       statementDate: statementDate ?? this.statementDate,
       paymentDueDate: paymentDueDate ?? this.paymentDueDate,
+      accountNumberSuffix: accountNumberSuffix ?? this.accountNumberSuffix,
+      linkedAccountId: linkedAccountId ?? this.linkedAccountId,
+      customTypeName: customTypeName ?? this.customTypeName,
+      iconKey: iconKey ?? this.iconKey,
+      colorArgb: colorArgb ?? this.colorArgb,
       notes: notes ?? this.notes,
+      allowNegativeBalance: allowNegativeBalance ?? this.allowNegativeBalance,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -2528,6 +3006,21 @@ class FinancialAccountsCompanion
         outstandingCreditMinorUnits.value,
       );
     }
+    if (openingOutstandingCreditMinorUnits.present) {
+      map['opening_outstanding_credit_minor_units'] = Variable<int>(
+        openingOutstandingCreditMinorUnits.value,
+      );
+    }
+    if (statementBalanceMinorUnits.present) {
+      map['statement_balance_minor_units'] = Variable<int>(
+        statementBalanceMinorUnits.value,
+      );
+    }
+    if (minimumPaymentMinorUnits.present) {
+      map['minimum_payment_minor_units'] = Variable<int>(
+        minimumPaymentMinorUnits.value,
+      );
+    }
     if (currencyCode.present) {
       map['currency_code'] = Variable<String>(currencyCode.value);
     }
@@ -2537,8 +3030,30 @@ class FinancialAccountsCompanion
     if (paymentDueDate.present) {
       map['payment_due_date'] = Variable<DateTime>(paymentDueDate.value);
     }
+    if (accountNumberSuffix.present) {
+      map['account_number_suffix'] = Variable<String>(
+        accountNumberSuffix.value,
+      );
+    }
+    if (linkedAccountId.present) {
+      map['linked_account_id'] = Variable<String>(linkedAccountId.value);
+    }
+    if (customTypeName.present) {
+      map['custom_type_name'] = Variable<String>(customTypeName.value);
+    }
+    if (iconKey.present) {
+      map['icon_key'] = Variable<String>(iconKey.value);
+    }
+    if (colorArgb.present) {
+      map['color_argb'] = Variable<int>(colorArgb.value);
+    }
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
+    }
+    if (allowNegativeBalance.present) {
+      map['allow_negative_balance'] = Variable<bool>(
+        allowNegativeBalance.value,
+      );
     }
     if (isActive.present) {
       map['is_active'] = Variable<bool>(isActive.value);
@@ -2579,10 +3094,21 @@ class FinancialAccountsCompanion
           ..write('currentBalanceMinorUnits: $currentBalanceMinorUnits, ')
           ..write('creditLimitMinorUnits: $creditLimitMinorUnits, ')
           ..write('outstandingCreditMinorUnits: $outstandingCreditMinorUnits, ')
+          ..write(
+            'openingOutstandingCreditMinorUnits: $openingOutstandingCreditMinorUnits, ',
+          )
+          ..write('statementBalanceMinorUnits: $statementBalanceMinorUnits, ')
+          ..write('minimumPaymentMinorUnits: $minimumPaymentMinorUnits, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('statementDate: $statementDate, ')
           ..write('paymentDueDate: $paymentDueDate, ')
+          ..write('accountNumberSuffix: $accountNumberSuffix, ')
+          ..write('linkedAccountId: $linkedAccountId, ')
+          ..write('customTypeName: $customTypeName, ')
+          ..write('iconKey: $iconKey, ')
+          ..write('colorArgb: $colorArgb, ')
           ..write('notes: $notes, ')
+          ..write('allowNegativeBalance: $allowNegativeBalance, ')
           ..write('isActive: $isActive, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -19619,10 +20145,19 @@ typedef $$FinancialAccountsTableCreateCompanionBuilder =
       Value<int> currentBalanceMinorUnits,
       Value<int> creditLimitMinorUnits,
       Value<int> outstandingCreditMinorUnits,
+      Value<int> openingOutstandingCreditMinorUnits,
+      Value<int> statementBalanceMinorUnits,
+      Value<int> minimumPaymentMinorUnits,
       Value<String> currencyCode,
       Value<DateTime?> statementDate,
       Value<DateTime?> paymentDueDate,
+      Value<String?> accountNumberSuffix,
+      Value<String?> linkedAccountId,
+      Value<String?> customTypeName,
+      Value<String?> iconKey,
+      Value<int?> colorArgb,
       Value<String?> notes,
+      Value<bool> allowNegativeBalance,
       Value<bool> isActive,
       required DateTime createdAt,
       required DateTime updatedAt,
@@ -19643,10 +20178,19 @@ typedef $$FinancialAccountsTableUpdateCompanionBuilder =
       Value<int> currentBalanceMinorUnits,
       Value<int> creditLimitMinorUnits,
       Value<int> outstandingCreditMinorUnits,
+      Value<int> openingOutstandingCreditMinorUnits,
+      Value<int> statementBalanceMinorUnits,
+      Value<int> minimumPaymentMinorUnits,
       Value<String> currencyCode,
       Value<DateTime?> statementDate,
       Value<DateTime?> paymentDueDate,
+      Value<String?> accountNumberSuffix,
+      Value<String?> linkedAccountId,
+      Value<String?> customTypeName,
+      Value<String?> iconKey,
+      Value<int?> colorArgb,
       Value<String?> notes,
+      Value<bool> allowNegativeBalance,
       Value<bool> isActive,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
@@ -19982,6 +20526,22 @@ class $$FinancialAccountsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<int> get openingOutstandingCreditMinorUnits =>
+      $composableBuilder(
+        column: $table.openingOutstandingCreditMinorUnits,
+        builder: (column) => ColumnFilters(column),
+      );
+
+  ColumnFilters<int> get statementBalanceMinorUnits => $composableBuilder(
+    column: $table.statementBalanceMinorUnits,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get minimumPaymentMinorUnits => $composableBuilder(
+    column: $table.minimumPaymentMinorUnits,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get currencyCode => $composableBuilder(
     column: $table.currencyCode,
     builder: (column) => ColumnFilters(column),
@@ -19997,8 +20557,38 @@ class $$FinancialAccountsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get accountNumberSuffix => $composableBuilder(
+    column: $table.accountNumberSuffix,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get linkedAccountId => $composableBuilder(
+    column: $table.linkedAccountId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get customTypeName => $composableBuilder(
+    column: $table.customTypeName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get colorArgb => $composableBuilder(
+    column: $table.colorArgb,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get allowNegativeBalance => $composableBuilder(
+    column: $table.allowNegativeBalance,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -20417,6 +21007,22 @@ class $$FinancialAccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get openingOutstandingCreditMinorUnits =>
+      $composableBuilder(
+        column: $table.openingOutstandingCreditMinorUnits,
+        builder: (column) => ColumnOrderings(column),
+      );
+
+  ColumnOrderings<int> get statementBalanceMinorUnits => $composableBuilder(
+    column: $table.statementBalanceMinorUnits,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get minimumPaymentMinorUnits => $composableBuilder(
+    column: $table.minimumPaymentMinorUnits,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get currencyCode => $composableBuilder(
     column: $table.currencyCode,
     builder: (column) => ColumnOrderings(column),
@@ -20432,8 +21038,38 @@ class $$FinancialAccountsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get accountNumberSuffix => $composableBuilder(
+    column: $table.accountNumberSuffix,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get linkedAccountId => $composableBuilder(
+    column: $table.linkedAccountId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get customTypeName => $composableBuilder(
+    column: $table.customTypeName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get iconKey => $composableBuilder(
+    column: $table.iconKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get colorArgb => $composableBuilder(
+    column: $table.colorArgb,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get allowNegativeBalance => $composableBuilder(
+    column: $table.allowNegativeBalance,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -20519,6 +21155,22 @@ class $$FinancialAccountsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<int> get openingOutstandingCreditMinorUnits =>
+      $composableBuilder(
+        column: $table.openingOutstandingCreditMinorUnits,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<int> get statementBalanceMinorUnits => $composableBuilder(
+    column: $table.statementBalanceMinorUnits,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get minimumPaymentMinorUnits => $composableBuilder(
+    column: $table.minimumPaymentMinorUnits,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get currencyCode => $composableBuilder(
     column: $table.currencyCode,
     builder: (column) => column,
@@ -20534,8 +21186,34 @@ class $$FinancialAccountsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get accountNumberSuffix => $composableBuilder(
+    column: $table.accountNumberSuffix,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get linkedAccountId => $composableBuilder(
+    column: $table.linkedAccountId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get customTypeName => $composableBuilder(
+    column: $table.customTypeName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get iconKey =>
+      $composableBuilder(column: $table.iconKey, builder: (column) => column);
+
+  GeneratedColumn<int> get colorArgb =>
+      $composableBuilder(column: $table.colorArgb, builder: (column) => column);
+
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<bool> get allowNegativeBalance => $composableBuilder(
+    column: $table.allowNegativeBalance,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<bool> get isActive =>
       $composableBuilder(column: $table.isActive, builder: (column) => column);
@@ -20947,10 +21625,20 @@ class $$FinancialAccountsTableTableManager
                 Value<int> currentBalanceMinorUnits = const Value.absent(),
                 Value<int> creditLimitMinorUnits = const Value.absent(),
                 Value<int> outstandingCreditMinorUnits = const Value.absent(),
+                Value<int> openingOutstandingCreditMinorUnits =
+                    const Value.absent(),
+                Value<int> statementBalanceMinorUnits = const Value.absent(),
+                Value<int> minimumPaymentMinorUnits = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
                 Value<DateTime?> statementDate = const Value.absent(),
                 Value<DateTime?> paymentDueDate = const Value.absent(),
+                Value<String?> accountNumberSuffix = const Value.absent(),
+                Value<String?> linkedAccountId = const Value.absent(),
+                Value<String?> customTypeName = const Value.absent(),
+                Value<String?> iconKey = const Value.absent(),
+                Value<int?> colorArgb = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<bool> allowNegativeBalance = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
@@ -20969,10 +21657,20 @@ class $$FinancialAccountsTableTableManager
                 currentBalanceMinorUnits: currentBalanceMinorUnits,
                 creditLimitMinorUnits: creditLimitMinorUnits,
                 outstandingCreditMinorUnits: outstandingCreditMinorUnits,
+                openingOutstandingCreditMinorUnits:
+                    openingOutstandingCreditMinorUnits,
+                statementBalanceMinorUnits: statementBalanceMinorUnits,
+                minimumPaymentMinorUnits: minimumPaymentMinorUnits,
                 currencyCode: currencyCode,
                 statementDate: statementDate,
                 paymentDueDate: paymentDueDate,
+                accountNumberSuffix: accountNumberSuffix,
+                linkedAccountId: linkedAccountId,
+                customTypeName: customTypeName,
+                iconKey: iconKey,
+                colorArgb: colorArgb,
                 notes: notes,
+                allowNegativeBalance: allowNegativeBalance,
                 isActive: isActive,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
@@ -20993,10 +21691,20 @@ class $$FinancialAccountsTableTableManager
                 Value<int> currentBalanceMinorUnits = const Value.absent(),
                 Value<int> creditLimitMinorUnits = const Value.absent(),
                 Value<int> outstandingCreditMinorUnits = const Value.absent(),
+                Value<int> openingOutstandingCreditMinorUnits =
+                    const Value.absent(),
+                Value<int> statementBalanceMinorUnits = const Value.absent(),
+                Value<int> minimumPaymentMinorUnits = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
                 Value<DateTime?> statementDate = const Value.absent(),
                 Value<DateTime?> paymentDueDate = const Value.absent(),
+                Value<String?> accountNumberSuffix = const Value.absent(),
+                Value<String?> linkedAccountId = const Value.absent(),
+                Value<String?> customTypeName = const Value.absent(),
+                Value<String?> iconKey = const Value.absent(),
+                Value<int?> colorArgb = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
+                Value<bool> allowNegativeBalance = const Value.absent(),
                 Value<bool> isActive = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
@@ -21015,10 +21723,20 @@ class $$FinancialAccountsTableTableManager
                 currentBalanceMinorUnits: currentBalanceMinorUnits,
                 creditLimitMinorUnits: creditLimitMinorUnits,
                 outstandingCreditMinorUnits: outstandingCreditMinorUnits,
+                openingOutstandingCreditMinorUnits:
+                    openingOutstandingCreditMinorUnits,
+                statementBalanceMinorUnits: statementBalanceMinorUnits,
+                minimumPaymentMinorUnits: minimumPaymentMinorUnits,
                 currencyCode: currencyCode,
                 statementDate: statementDate,
                 paymentDueDate: paymentDueDate,
+                accountNumberSuffix: accountNumberSuffix,
+                linkedAccountId: linkedAccountId,
+                customTypeName: customTypeName,
+                iconKey: iconKey,
+                colorArgb: colorArgb,
                 notes: notes,
+                allowNegativeBalance: allowNegativeBalance,
                 isActive: isActive,
                 createdAt: createdAt,
                 updatedAt: updatedAt,

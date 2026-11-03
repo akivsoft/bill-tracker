@@ -6,12 +6,24 @@ final class FinancialAccount {
     required this.currentBalanceMinorUnits,
     required this.currencyCode,
     required this.isActive,
+    this.openingBalanceMinorUnits = 0,
     this.provider,
     this.creditLimitMinorUnits = 0,
     this.outstandingCreditMinorUnits = 0,
+    this.openingOutstandingCreditMinorUnits = 0,
+    this.statementBalanceMinorUnits = 0,
+    this.minimumPaymentMinorUnits = 0,
     this.statementDate,
     this.paymentDueDate,
+    this.accountNumberSuffix,
+    this.linkedAccountId,
+    this.customTypeName,
+    this.iconKey,
+    this.colorArgb,
     this.notes,
+    this.allowNegativeBalance = false,
+    this.archivedAt,
+    this.createdAt,
   });
 
   final String id;
@@ -20,18 +32,31 @@ final class FinancialAccount {
   final int currentBalanceMinorUnits;
   final String currencyCode;
   final bool isActive;
+  final int openingBalanceMinorUnits;
   final String? provider;
   final int creditLimitMinorUnits;
   final int outstandingCreditMinorUnits;
+  final int openingOutstandingCreditMinorUnits;
+  final int statementBalanceMinorUnits;
+  final int minimumPaymentMinorUnits;
   final DateTime? statementDate;
   final DateTime? paymentDueDate;
+  final String? accountNumberSuffix;
+  final String? linkedAccountId;
+  final String? customTypeName;
+  final String? iconKey;
+  final int? colorArgb;
   final String? notes;
+  final bool allowNegativeBalance;
+  final DateTime? archivedAt;
+  final DateTime? createdAt;
 }
 
 final class IncomeEntry {
   const IncomeEntry({
     required this.id,
     required this.source,
+    this.category,
     required this.amountMinorUnits,
     required this.currencyCode,
     required this.expectedDate,
@@ -44,6 +69,7 @@ final class IncomeEntry {
 
   final String id;
   final String source;
+  final String? category;
   final int amountMinorUnits;
   final String currencyCode;
   final DateTime expectedDate;

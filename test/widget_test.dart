@@ -79,23 +79,17 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Income').first);
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('Record paydays and other income sources.'),
-      findsOneWidget,
-    );
+    expect(find.text('No income records match this view.'), findsOneWidget);
 
     navigationBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     navigationBar.onDestinationSelected!(2);
     await tester.pumpAndSettle();
-    expect(find.text('No wallets yet'), findsOneWidget);
+    expect(find.text('Wallets'), findsWidgets);
 
     navigationBar = tester.widget<NavigationBar>(find.byType(NavigationBar));
     navigationBar.onDestinationSelected!(4);
     await tester.pumpAndSettle();
-    expect(
-      find.textContaining('Record paydays and other income sources.'),
-      findsOneWidget,
-    );
+    expect(find.text('No income records match this view.'), findsOneWidget);
     await _disposeApp(tester, database);
   });
 

@@ -132,7 +132,7 @@ class MoreScreen extends ConsumerWidget {
               ),
               const SizedBox(height: AppSpacing.small),
               Text(
-                'Choose a section to explore. You can add real records as each module is built.',
+                'Choose a section to manage your records and plans.',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

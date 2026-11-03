@@ -8,6 +8,8 @@ final class AccountBalance {
     this.creditLimitMinorUnits = 0,
     this.outstandingCreditMinorUnits = 0,
     this.isActive = true,
+    this.linkedAccountId,
+    this.allowNegativeBalance = false,
   });
 
   final String id;
@@ -17,10 +19,15 @@ final class AccountBalance {
   final int creditLimitMinorUnits;
   final int outstandingCreditMinorUnits;
   final bool isActive;
+  final String? linkedAccountId;
+  final bool allowNegativeBalance;
 
   bool get isCreditAccount =>
       accountType.toLowerCase().replaceAll(RegExp(r'[_\s-]'), '') ==
       'creditcard';
+
+  bool get isLinkedDebitCard =>
+      accountType == 'debit_card' && linkedAccountId != null;
 }
 
 final class TransferBalances {
@@ -67,6 +74,10 @@ final class FinancialTransactionView {
     this.destinationAccountId,
     this.relatedRecordId,
     this.reversalOfId,
+    this.direction = 'none',
+    this.category,
+    this.description,
+    this.notes,
   });
 
   final String id;
@@ -79,4 +90,8 @@ final class FinancialTransactionView {
   final String? destinationAccountId;
   final String? relatedRecordId;
   final String? reversalOfId;
+  final String direction;
+  final String? category;
+  final String? description;
+  final String? notes;
 }

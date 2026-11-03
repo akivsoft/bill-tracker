@@ -5,6 +5,7 @@ import 'package:bill_tracker/data/local/database/tables/financial_accounts.dart'
 import 'package:bill_tracker/data/local/database/tables/income_expenses.dart';
 import 'package:bill_tracker/data/local/database/tables/loans.dart';
 import 'package:bill_tracker/data/local/database/tables/savings_and_allocations.dart';
+import 'package:bill_tracker/data/local/database/tables/sync_queue.dart';
 import 'package:bill_tracker/data/local/database/tables/transactions.dart';
 import 'package:bill_tracker/data/sync/sync_queue.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -46,48 +47,87 @@ class LocalFinancialDataSource {
                 rows.map(_transactionView).toList(growable: false),
           );
 
+  Stream<List<FinancialTransactionView>> watchAccountTransactions(
+    String accountId,
+  ) =>
+      (_database.select(_database.transactions)
+            ..where(
+              (Transactions row) =>
+                  row.deletedAt.isNull() &
+                  (row.accountId.equals(accountId) |
+                      row.sourceAccountId.equals(accountId) |
+                      row.destinationAccountId.equals(accountId)),
+            )
+            ..orderBy(<OrderingTerm Function(Transactions)>[
+              (Transactions row) => OrderingTerm.desc(row.occurredAt),
+            ]))
+          .watch()
+          .map(
+            (List<TransactionRecord> rows) =>
+                rows.map(_transactionView).toList(growable: false),
+          );
+
   Stream<List<FinancialAccount>> watchFinancialAccounts() =>
+      _watchFinancialAccounts(includeArchived: false);
+
+  Stream<List<FinancialAccount>> watchAllFinancialAccounts() =>
+      _watchFinancialAccounts(includeArchived: true);
+
+  Stream<FinancialAccount?> watchFinancialAccount(String accountId) =>
       (_database.select(_database.financialAccounts)
-            ..where((FinancialAccounts row) => row.archivedAt.isNull())
+            ..where((FinancialAccounts row) => row.id.equals(accountId)))
+          .watchSingleOrNull()
+          .map(
+            (FinancialAccountRecord? row) =>
+                row == null ? null : _financialAccountEntity(row),
+          );
+
+  Stream<List<FinancialAccount>> _watchFinancialAccounts({
+    required bool includeArchived,
+  }) =>
+      (_database.select(_database.financialAccounts)
+            ..where(
+              (FinancialAccounts row) => includeArchived
+                  ? const Constant(true)
+                  : row.archivedAt.isNull(),
+            )
             ..orderBy(<OrderingTerm Function(FinancialAccounts)>[
               (FinancialAccounts row) => OrderingTerm.asc(row.name),
             ]))
           .watch()
           .map(
-            (List<FinancialAccountRecord> rows) => rows
-                .map(
-                  (FinancialAccountRecord row) => FinancialAccount(
-                    id: row.id,
-                    name: row.name,
-                    accountType: row.accountType,
-                    currentBalanceMinorUnits: row.currentBalanceMinorUnits,
-                    currencyCode: row.currencyCode,
-                    isActive: row.isActive,
-                    provider: row.provider,
-                    creditLimitMinorUnits: row.creditLimitMinorUnits,
-                    outstandingCreditMinorUnits:
-                        row.outstandingCreditMinorUnits,
-                    statementDate: row.statementDate,
-                    paymentDueDate: row.paymentDueDate,
-                    notes: row.notes,
-                  ),
-                )
-                .toList(growable: false),
+            (List<FinancialAccountRecord> rows) =>
+                rows.map(_financialAccountEntity).toList(growable: false),
           );
 
   Stream<List<IncomeEntry>> watchIncome() =>
-      (_database.select(_database.incomeRecords)
-            ..where((IncomeRecords row) => row.deletedAt.isNull())
-            ..orderBy(<OrderingTerm Function(IncomeRecords)>[
-              (IncomeRecords row) => OrderingTerm.desc(row.expectedDate),
+      (_database
+              .select(_database.incomeRecords)
+              .join(<Join<HasResultSet, dynamic>>[
+                leftOuterJoin(
+                  _database.incomeSources,
+                  _database.incomeRecords.sourceId.equalsExp(
+                    _database.incomeSources.id,
+                  ),
+                ),
+              ])
+            ..where(_database.incomeRecords.deletedAt.isNull())
+            ..orderBy(<OrderingTerm>[
+              OrderingTerm.desc(_database.incomeRecords.expectedDate),
             ]))
           .watch()
           .map(
-            (List<IncomeRecord> rows) => rows
-                .map(
-                  (IncomeRecord row) => IncomeEntry(
+            (List<TypedResult> rows) => rows
+                .map((TypedResult result) {
+                  final IncomeRecord row = result.readTable(
+                    _database.incomeRecords,
+                  );
+                  return IncomeEntry(
                     id: row.id,
                     source: row.source,
+                    category: result
+                        .readTableOrNull(_database.incomeSources)
+                        ?.sourceType,
                     amountMinorUnits: row.amountMinorUnits,
                     currencyCode: row.currencyCode,
                     expectedDate: row.expectedDate,
@@ -96,8 +136,8 @@ class LocalFinancialDataSource {
                     status: row.status,
                     receivingAccountId: row.receivingAccountId,
                     notes: row.notes,
-                  ),
-                )
+                  );
+                })
                 .toList(growable: false),
           );
 
@@ -342,11 +382,22 @@ class LocalFinancialDataSource {
 
   Future<String> createAccount(CreateAccountInput input) async {
     _requireText(input.name, 'name');
-    _requireNonNegative(input.openingBalanceMinorUnits, 'openingBalance');
+    _requireAccountBalance(
+      input.openingBalanceMinorUnits,
+      input.accountType,
+      input.allowNegativeBalance,
+    );
     _requireNonNegative(input.creditLimitMinorUnits, 'creditLimit');
     _requireNonNegative(input.outstandingCreditMinorUnits, 'outstandingCredit');
+    final int openingOutstanding =
+        input.openingOutstandingCreditMinorUnits ??
+        input.outstandingCreditMinorUnits;
+    _requireNonNegative(openingOutstanding, 'openingOutstandingCredit');
+    _requireNonNegative(input.statementBalanceMinorUnits, 'statementBalance');
+    _requireNonNegative(input.minimumPaymentMinorUnits, 'minimumPayment');
     _requireText(input.accountType, 'accountType');
     _requireCurrency(input.currencyCode);
+    _validateAccountNumberSuffix(input.accountNumberSuffix);
     const Set<String> allowedAccountTypes = <String>{
       'cash',
       'bank',
@@ -362,9 +413,27 @@ class LocalFinancialDataSource {
     if (!allowedAccountTypes.contains(input.accountType)) {
       throw ArgumentError.value(input.accountType, 'accountType');
     }
+    if (input.allowNegativeBalance &&
+        !<String>{'bank', 'custom', 'other'}.contains(input.accountType)) {
+      throw ArgumentError(
+        'Negative balances are available for bank and custom accounts.',
+      );
+    }
+    if (_isCreditCard(input.accountType) &&
+        input.openingBalanceMinorUnits != 0) {
+      throw ArgumentError(
+        'Credit card balances are recorded as outstanding credit.',
+      );
+    }
+    if (openingOutstanding > input.creditLimitMinorUnits) {
+      throw ArgumentError(
+        'Opening outstanding credit cannot exceed the credit limit.',
+      );
+    }
     if (!_isCreditCard(input.accountType) &&
         (input.creditLimitMinorUnits != 0 ||
-            input.outstandingCreditMinorUnits != 0)) {
+            input.outstandingCreditMinorUnits != 0 ||
+            openingOutstanding != 0)) {
       throw ArgumentError(
         'Credit limits and outstanding credit belong to credit-card accounts.',
       );
@@ -375,10 +444,37 @@ class LocalFinancialDataSource {
     if (input.outstandingCreditMinorUnits > input.creditLimitMinorUnits) {
       throw ArgumentError('Outstanding credit cannot exceed the credit limit.');
     }
+    if (!_isCreditCard(input.accountType) &&
+        (input.statementBalanceMinorUnits != 0 ||
+            input.minimumPaymentMinorUnits != 0 ||
+            input.statementDate != null ||
+            input.paymentDueDate != null)) {
+      throw ArgumentError('Statement details belong to credit-card accounts.');
+    }
+    if (input.accountType != 'debit_card' && input.linkedAccountId != null) {
+      throw ArgumentError('Only debit cards can link to a deposit account.');
+    }
+    if (input.linkedAccountId != null && input.openingBalanceMinorUnits != 0) {
+      throw ArgumentError(
+        'A linked debit card cannot hold a separate balance.',
+      );
+    }
 
     final DateTime now = _now();
     final String id = _uuid.v4();
     await _database.transaction(() async {
+      if (input.linkedAccountId != null) {
+        final FinancialAccountRecord linkedAccount = await _account(
+          input.linkedAccountId!,
+        );
+        _requireCashAccount(linkedAccount);
+        if (linkedAccount.accountType == 'debit_card' ||
+            linkedAccount.linkedAccountId != null) {
+          throw ArgumentError('Link a debit card to a deposit account.');
+        }
+        _requireOwner(input.userId, linkedAccount.userId);
+        _requireSameCurrency(input.currencyCode, linkedAccount.currencyCode);
+      }
       await _database
           .into(_database.financialAccounts)
           .insert(
@@ -396,10 +492,27 @@ class LocalFinancialDataSource {
               outstandingCreditMinorUnits: Value<int>(
                 input.outstandingCreditMinorUnits,
               ),
+              openingOutstandingCreditMinorUnits: Value<int>(
+                openingOutstanding,
+              ),
               currencyCode: Value<String>(input.currencyCode),
               statementDate: Value<DateTime?>(_asUtc(input.statementDate)),
               paymentDueDate: Value<DateTime?>(_asUtc(input.paymentDueDate)),
+              statementBalanceMinorUnits: Value<int>(
+                input.statementBalanceMinorUnits,
+              ),
+              minimumPaymentMinorUnits: Value<int>(
+                input.minimumPaymentMinorUnits,
+              ),
+              accountNumberSuffix: Value<String?>(
+                _trimOrNull(input.accountNumberSuffix),
+              ),
+              linkedAccountId: Value<String?>(input.linkedAccountId),
+              customTypeName: Value<String?>(_trimOrNull(input.customTypeName)),
+              iconKey: Value<String?>(_trimOrNull(input.iconKey)),
+              colorArgb: Value<int?>(input.colorArgb),
               notes: Value<String?>(_trimOrNull(input.notes)),
+              allowNegativeBalance: Value<bool>(input.allowNegativeBalance),
               isActive: const Value<bool>(true),
               createdAt: now,
               updatedAt: now,
@@ -417,14 +530,309 @@ class LocalFinancialDataSource {
         'outstanding_credit_balance': _decimalAmount(
           input.outstandingCreditMinorUnits,
         ),
+        'opening_outstanding_credit_balance': _decimalAmount(
+          openingOutstanding,
+        ),
         'currency_code': input.currencyCode,
         'statement_date': _dateOnly(input.statementDate),
         'payment_due_date': _dateOnly(input.paymentDueDate),
+        'statement_balance': _decimalAmount(input.statementBalanceMinorUnits),
+        'minimum_payment': _decimalAmount(input.minimumPaymentMinorUnits),
+        'account_number_suffix': _trimOrNull(input.accountNumberSuffix),
+        'linked_account_id': input.linkedAccountId,
+        'custom_type_name': _trimOrNull(input.customTypeName),
+        'icon_key': _trimOrNull(input.iconKey),
+        'color_argb': input.colorArgb,
         'notes': _trimOrNull(input.notes),
+        'allow_negative_balance': input.allowNegativeBalance,
         'is_active': true,
       });
     });
     return id;
+  }
+
+  Future<void> updateAccount(
+    UpdateAccountInput input,
+  ) => _database.transaction(() async {
+    final FinancialAccountRecord account = await _account(input.accountId);
+    if (account.archivedAt != null) {
+      throw StateError('Restore this account before editing it.');
+    }
+    _requireText(input.name, 'name');
+    _requireNonNegative(input.statementBalanceMinorUnits, 'statementBalance');
+    _requireNonNegative(input.minimumPaymentMinorUnits, 'minimumPayment');
+    _validateAccountNumberSuffix(input.accountNumberSuffix);
+    final bool isCard = _isCreditCard(account.accountType);
+    final int creditLimit =
+        input.creditLimitMinorUnits ?? account.creditLimitMinorUnits;
+    if (isCard) {
+      _requirePositive(creditLimit, 'creditLimit');
+      if (creditLimit < account.outstandingCreditMinorUnits) {
+        throw ArgumentError(
+          'Credit limit cannot be lower than the current outstanding balance.',
+        );
+      }
+    } else if (input.creditLimitMinorUnits != null ||
+        input.statementBalanceMinorUnits != 0 ||
+        input.minimumPaymentMinorUnits != 0 ||
+        input.statementDate != null ||
+        input.paymentDueDate != null) {
+      throw ArgumentError('Credit details belong to credit-card accounts.');
+    }
+    if (!<String>{'bank', 'custom', 'other'}.contains(account.accountType) &&
+        input.allowNegativeBalance) {
+      throw ArgumentError(
+        'Negative balances are available for bank and custom accounts.',
+      );
+    }
+    if (!input.allowNegativeBalance && account.currentBalanceMinorUnits < 0) {
+      throw StateError(
+        'Set the balance to zero or allow a negative balance before disabling overdraft.',
+      );
+    }
+    if (account.accountType != 'debit_card' && input.linkedAccountId != null) {
+      throw ArgumentError('Only debit cards can link to a deposit account.');
+    }
+    if (account.accountType == 'debit_card' && input.linkedAccountId != null) {
+      if (input.linkedAccountId == account.id) {
+        throw ArgumentError('An account cannot link to itself.');
+      }
+      final FinancialAccountRecord linked = await _account(
+        input.linkedAccountId!,
+      );
+      _requireCashAccount(linked);
+      if (linked.accountType == 'debit_card' ||
+          linked.linkedAccountId != null) {
+        throw ArgumentError('Link a debit card to a deposit account.');
+      }
+      _requireOwner(account.userId, linked.userId);
+      _requireSameCurrency(account.currencyCode, linked.currencyCode);
+      if (account.currentBalanceMinorUnits != 0) {
+        throw StateError(
+          'Reconcile this debit card to zero before linking it to another account.',
+        );
+      }
+    }
+    final DateTime now = _now();
+    final int nextVersion = account.localVersion + 1;
+    await (_database.update(
+      _database.financialAccounts,
+    )..where((FinancialAccounts row) => row.id.equals(account.id))).write(
+      FinancialAccountsCompanion(
+        name: Value<String>(input.name.trim()),
+        provider: Value<String?>(_trimOrNull(input.provider)),
+        accountNumberSuffix: Value<String?>(
+          _trimOrNull(input.accountNumberSuffix),
+        ),
+        linkedAccountId: Value<String?>(input.linkedAccountId),
+        customTypeName: Value<String?>(_trimOrNull(input.customTypeName)),
+        iconKey: Value<String?>(_trimOrNull(input.iconKey)),
+        colorArgb: Value<int?>(input.colorArgb),
+        statementBalanceMinorUnits: Value<int>(
+          isCard ? input.statementBalanceMinorUnits : 0,
+        ),
+        minimumPaymentMinorUnits: Value<int>(
+          isCard ? input.minimumPaymentMinorUnits : 0,
+        ),
+        creditLimitMinorUnits: Value<int>(creditLimit),
+        statementDate: Value<DateTime?>(
+          isCard ? _asUtc(input.statementDate) : null,
+        ),
+        paymentDueDate: Value<DateTime?>(
+          isCard ? _asUtc(input.paymentDueDate) : null,
+        ),
+        notes: Value<String?>(_trimOrNull(input.notes)),
+        allowNegativeBalance: Value<bool>(input.allowNegativeBalance),
+        updatedAt: Value<DateTime>(now),
+        localVersion: Value<int>(nextVersion),
+        syncState: const Value<String>('pending'),
+      ),
+    );
+    await _enqueue('financial_accounts', account.id, <String, Object?>{
+      ..._accountSyncPayload(account),
+      'name': input.name.trim(),
+      'provider': _trimOrNull(input.provider),
+      'account_number_suffix': _trimOrNull(input.accountNumberSuffix),
+      'linked_account_id': input.linkedAccountId,
+      'custom_type_name': _trimOrNull(input.customTypeName),
+      'icon_key': _trimOrNull(input.iconKey),
+      'color_argb': input.colorArgb,
+      'credit_limit': _decimalAmount(creditLimit),
+      'statement_balance': _decimalAmount(
+        isCard ? input.statementBalanceMinorUnits : 0,
+      ),
+      'minimum_payment': _decimalAmount(
+        isCard ? input.minimumPaymentMinorUnits : 0,
+      ),
+      'statement_date': _dateOnly(isCard ? input.statementDate : null),
+      'payment_due_date': _dateOnly(isCard ? input.paymentDueDate : null),
+      'allow_negative_balance': input.allowNegativeBalance,
+      'notes': _trimOrNull(input.notes),
+    });
+  });
+
+  Future<void> setAccountActive(String accountId, bool isActive) =>
+      _database.transaction(() async {
+        final FinancialAccountRecord account = await _account(accountId);
+        if (account.archivedAt != null) {
+          throw StateError('Restore this account before activating it.');
+        }
+        if (account.isActive == isActive) return;
+        final DateTime now = _now();
+        await (_database.update(
+          _database.financialAccounts,
+        )..where((FinancialAccounts row) => row.id.equals(accountId))).write(
+          FinancialAccountsCompanion(
+            isActive: Value<bool>(isActive),
+            updatedAt: Value<DateTime>(now),
+            localVersion: Value<int>(account.localVersion + 1),
+            syncState: const Value<String>('pending'),
+          ),
+        );
+        await _enqueue('financial_accounts', accountId, <String, Object?>{
+          ..._accountSyncPayload(account),
+          'is_active': isActive,
+        });
+      });
+
+  Future<void> archiveAccount(String accountId) =>
+      _database.transaction(() async {
+        final FinancialAccountRecord account = await _account(accountId);
+        if (account.archivedAt != null) return;
+        final DateTime now = _now();
+        await (_database.update(
+          _database.financialAccounts,
+        )..where((FinancialAccounts row) => row.id.equals(accountId))).write(
+          FinancialAccountsCompanion(
+            isActive: const Value<bool>(false),
+            archivedAt: Value<DateTime?>(now),
+            updatedAt: Value<DateTime>(now),
+            localVersion: Value<int>(account.localVersion + 1),
+            syncState: const Value<String>('pending'),
+          ),
+        );
+        await _enqueue('financial_accounts', accountId, <String, Object?>{
+          ..._accountSyncPayload(account),
+          'is_active': false,
+          'archived_at': now.toIso8601String(),
+        });
+      });
+
+  Future<void> restoreAccount(String accountId) =>
+      _database.transaction(() async {
+        final FinancialAccountRecord account = await _account(accountId);
+        if (account.archivedAt == null) return;
+        final DateTime now = _now();
+        await (_database.update(
+          _database.financialAccounts,
+        )..where((FinancialAccounts row) => row.id.equals(accountId))).write(
+          FinancialAccountsCompanion(
+            isActive: const Value<bool>(true),
+            archivedAt: const Value<DateTime?>(null),
+            updatedAt: Value<DateTime>(now),
+            localVersion: Value<int>(account.localVersion + 1),
+            syncState: const Value<String>('pending'),
+          ),
+        );
+        await _enqueue('financial_accounts', accountId, <String, Object?>{
+          ..._accountSyncPayload(account),
+          'is_active': true,
+          'archived_at': null,
+        });
+      });
+
+  Future<void> deleteAccount(
+    String accountId,
+  ) => _database.transaction(() async {
+    await _account(accountId);
+    if (await _accountHasFinancialHistory(accountId)) {
+      throw StateError(
+        'This account has financial history. Archive it to keep its records.',
+      );
+    }
+    if (await _accountHasLinkedOperations(accountId)) {
+      throw StateError(
+        'This account is linked to planned financial records and cannot be deleted.',
+      );
+    }
+    await (_database.delete(
+      _database.financialAccounts,
+    )..where((FinancialAccounts row) => row.id.equals(accountId))).go();
+    await (_database.delete(_database.syncQueue)..where(
+          (SyncQueue row) =>
+              row.entityType.equals('financial_accounts') &
+              row.entityId.equals(accountId),
+        ))
+        .go();
+  });
+
+  Future<bool> _accountHasFinancialHistory(String accountId) async =>
+      (await (_database.select(_database.transactions)..where(
+            (Transactions row) =>
+                row.accountId.equals(accountId) |
+                row.sourceAccountId.equals(accountId) |
+                row.destinationAccountId.equals(accountId),
+          ))
+          .getSingleOrNull()) !=
+      null;
+
+  Future<bool> _accountHasLinkedOperations(String accountId) async {
+    final bool linkedDebit =
+        await (_database.select(_database.financialAccounts)..where(
+              (FinancialAccounts row) => row.linkedAccountId.equals(accountId),
+            ))
+            .getSingleOrNull() !=
+        null;
+    if (linkedDebit) return true;
+    if (await (_database.select(_database.incomeRecords)..where(
+              (IncomeRecords row) => row.receivingAccountId.equals(accountId),
+            ))
+            .getSingleOrNull() !=
+        null) {
+      return true;
+    }
+    if (await (_database.select(_database.expenses)
+              ..where((Expenses row) => row.paymentAccountId.equals(accountId)))
+            .getSingleOrNull() !=
+        null) {
+      return true;
+    }
+    if (await (_database.select(_database.bills)
+              ..where((Bills row) => row.accountId.equals(accountId)))
+            .getSingleOrNull() !=
+        null) {
+      return true;
+    }
+    if (await (_database.select(_database.loanPayments)
+              ..where((LoanPayments row) => row.accountId.equals(accountId)))
+            .getSingleOrNull() !=
+        null) {
+      return true;
+    }
+    if (await (_database.select(_database.loanInstallments)..where(
+              (LoanInstallments row) => row.paymentAccountId.equals(accountId),
+            ))
+            .getSingleOrNull() !=
+        null) {
+      return true;
+    }
+    if (await (_database.select(_database.savingsContributions)..where(
+              (SavingsContributions row) => row.accountId.equals(accountId),
+            ))
+            .getSingleOrNull() !=
+        null) {
+      return true;
+    }
+    if (await (_database.select(_database.accountTransfers)..where(
+              (AccountTransfers row) =>
+                  row.fromAccountId.equals(accountId) |
+                  row.toAccountId.equals(accountId),
+            ))
+            .getSingleOrNull() !=
+        null) {
+      return true;
+    }
+    return false;
   }
 
   Future<String> createCategory(CreateCategoryInput input) async {
@@ -485,14 +893,31 @@ class LocalFinancialDataSource {
 
     final DateTime now = _now();
     final String id = _uuid.v4();
+    final String? sourceId = input.category == null
+        ? input.sourceId
+        : _uuid.v4();
     await _database.transaction(() async {
+      if (input.category != null) {
+        await _database
+            .into(_database.incomeSources)
+            .insert(
+              IncomeSourcesCompanion.insert(
+                id: sourceId!,
+                userId: Value<String?>(input.userId),
+                name: input.source.trim(),
+                sourceType: Value<String>(input.category!.trim()),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      }
       await _database
           .into(_database.incomeRecords)
           .insert(
             IncomeRecordsCompanion.insert(
               id: id,
               userId: Value<String?>(input.userId),
-              sourceId: Value<String?>(input.sourceId),
+              sourceId: Value<String?>(sourceId),
               source: input.source.trim(),
               amountMinorUnits: input.amountMinorUnits,
               currencyCode: Value<String>(input.currencyCode),
@@ -508,8 +933,9 @@ class LocalFinancialDataSource {
       await _enqueue('income_records', id, <String, Object?>{
         'id': id,
         'user_id': input.userId,
-        'income_source_id': input.sourceId,
+        'income_source_id': sourceId,
         'source_name': input.source.trim(),
+        'source_type': input.category,
         'amount': _decimalAmount(input.amountMinorUnits),
         'currency_code': input.currencyCode,
         'expected_date': _dateOnly(input.expectedDate),
@@ -522,6 +948,110 @@ class LocalFinancialDataSource {
     return id;
   }
 
+  Future<void> updateIncome(UpdateIncomeInput input) async {
+    _requireText(input.source, 'source');
+    _requirePositive(input.amountMinorUnits, 'amountMinorUnits');
+    _requireFrequency(input.frequency);
+    await _database.transaction(() async {
+      final IncomeRecord record =
+          await (_database.select(_database.incomeRecords)
+                ..where((IncomeRecords row) => row.id.equals(input.incomeId)))
+              .getSingle();
+      if (record.status != 'expected' || record.transactionId != null) {
+        throw StateError('Only expected income can be edited.');
+      }
+      if (input.receivingAccountId != null) {
+        final FinancialAccountRecord account = await _account(
+          input.receivingAccountId!,
+        );
+        _requireOwner(record.userId, account.userId);
+        _requireActiveAccount(account);
+        _requireSameCurrency(record.currencyCode, account.currencyCode);
+        if (_isCreditCard(account.accountType)) {
+          throw ArgumentError('Income cannot be received into a credit card.');
+        }
+      }
+      final DateTime now = _now();
+      String? sourceId = record.sourceId;
+      if (sourceId == null && input.category != null) {
+        sourceId = _uuid.v4();
+        await _database
+            .into(_database.incomeSources)
+            .insert(
+              IncomeSourcesCompanion.insert(
+                id: sourceId,
+                userId: Value<String?>(record.userId),
+                name: input.source.trim(),
+                sourceType: Value<String>(input.category!.trim()),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      } else if (sourceId != null) {
+        await (_database.update(
+          _database.incomeSources,
+        )..where((IncomeSources row) => row.id.equals(record.sourceId!))).write(
+          IncomeSourcesCompanion(
+            name: Value<String>(input.source.trim()),
+            sourceType: Value<String>(input.category ?? 'other'),
+            updatedAt: Value<DateTime>(now),
+          ),
+        );
+      }
+      await (_database.update(
+        _database.incomeRecords,
+      )..where((IncomeRecords row) => row.id.equals(record.id))).write(
+        IncomeRecordsCompanion(
+          sourceId: Value<String?>(sourceId),
+          source: Value<String>(input.source.trim()),
+          amountMinorUnits: Value<int>(input.amountMinorUnits),
+          expectedDate: Value<DateTime>(_asUtcDate(input.expectedDate)),
+          frequency: Value<String>(input.frequency),
+          receivingAccountId: Value<String?>(input.receivingAccountId),
+          notes: Value<String?>(_trimOrNull(input.notes)),
+          updatedAt: Value<DateTime>(now),
+          localVersion: Value<int>(record.localVersion + 1),
+        ),
+      );
+      await _enqueue('income_records', record.id, <String, Object?>{
+        'id': record.id,
+        'source_name': input.source.trim(),
+        'source_type': input.category,
+        'amount': _decimalAmount(input.amountMinorUnits),
+        'expected_date': _dateOnly(input.expectedDate),
+        'frequency': input.frequency,
+        'receiving_account_id': input.receivingAccountId,
+        'notes': _trimOrNull(input.notes),
+        'status': 'expected',
+      });
+    });
+  }
+
+  Future<void> cancelIncome(String incomeId) async {
+    await _database.transaction(() async {
+      final IncomeRecord record = await (_database.select(
+        _database.incomeRecords,
+      )..where((IncomeRecords row) => row.id.equals(incomeId))).getSingle();
+      if (record.status != 'expected' || record.transactionId != null) {
+        throw StateError('Only expected income can be cancelled.');
+      }
+      final DateTime now = _now();
+      await (_database.update(
+        _database.incomeRecords,
+      )..where((IncomeRecords row) => row.id.equals(record.id))).write(
+        IncomeRecordsCompanion(
+          status: const Value<String>('cancelled'),
+          updatedAt: Value<DateTime>(now),
+          localVersion: Value<int>(record.localVersion + 1),
+        ),
+      );
+      await _enqueue('income_records', record.id, <String, Object?>{
+        'id': record.id,
+        'status': 'cancelled',
+      });
+    });
+  }
+
   Future<String> createExpense(CreateExpenseInput input) async {
     _requireText(input.title, 'title');
     _requirePositive(input.amountMinorUnits, 'amountMinorUnits');
@@ -531,7 +1061,7 @@ class LocalFinancialDataSource {
         input.paymentAccountId!,
       );
       _requireOwner(input.userId, account.userId);
-      _requireCashAccount(account);
+      if (!_isCreditCard(account.accountType)) _requireCashAccount(account);
       _requireSameCurrency(input.currencyCode, account.currencyCode);
     }
 
@@ -576,6 +1106,84 @@ class LocalFinancialDataSource {
       });
     });
     return id;
+  }
+
+  Future<void> updateExpense(UpdateExpenseInput input) async {
+    _requireText(input.title, 'title');
+    _requirePositive(input.amountMinorUnits, 'amountMinorUnits');
+    _requireCurrency(input.currencyCode);
+    await _database.transaction(() async {
+      final ExpenseRecord record = await (_database.select(
+        _database.expenses,
+      )..where((Expenses row) => row.id.equals(input.expenseId))).getSingle();
+      if (record.status != 'planned' || record.transactionId != null) {
+        throw StateError('Only planned expenses can be edited.');
+      }
+      if (input.paymentAccountId != null) {
+        final FinancialAccountRecord account = await _account(
+          input.paymentAccountId!,
+        );
+        _requireOwner(record.userId, account.userId);
+        _requireSameCurrency(input.currencyCode, account.currencyCode);
+        if (!_isCreditCard(account.accountType)) _requireCashAccount(account);
+      }
+      final DateTime now = _now();
+      await (_database.update(
+        _database.expenses,
+      )..where((Expenses row) => row.id.equals(record.id))).write(
+        ExpensesCompanion(
+          title: Value<String>(input.title.trim()),
+          amountMinorUnits: Value<int>(input.amountMinorUnits),
+          currencyCode: Value<String>(input.currencyCode),
+          categoryId: Value<String?>(input.categoryId),
+          occurredAt: Value<DateTime>(input.occurredAt.toUtc()),
+          paymentAccountId: Value<String?>(input.paymentAccountId),
+          description: Value<String?>(_trimOrNull(input.description)),
+          attachmentReference: Value<String?>(input.attachmentReference),
+          recurrenceConfiguration: Value<String?>(
+            input.recurrenceConfiguration,
+          ),
+          updatedAt: Value<DateTime>(now),
+        ),
+      );
+      await _enqueue('expenses', record.id, <String, Object?>{
+        'id': record.id,
+        'title': input.title.trim(),
+        'amount': _decimalAmount(input.amountMinorUnits),
+        'currency_code': input.currencyCode,
+        'financial_category_id': input.categoryId,
+        'account_id': input.paymentAccountId,
+        'spent_at': input.occurredAt.toUtc().toIso8601String(),
+        'notes': _trimOrNull(input.description),
+        'attachment_reference': input.attachmentReference,
+        'recurrence_configuration': input.recurrenceConfiguration,
+        'status': 'planned',
+      });
+    });
+  }
+
+  Future<void> cancelExpense(String expenseId) async {
+    await _database.transaction(() async {
+      final ExpenseRecord record = await (_database.select(
+        _database.expenses,
+      )..where((Expenses row) => row.id.equals(expenseId))).getSingle();
+      if (record.status != 'planned' || record.transactionId != null) {
+        throw StateError('Only planned expenses can be cancelled.');
+      }
+      final DateTime now = _now();
+      await (_database.update(
+        _database.expenses,
+      )..where((Expenses row) => row.id.equals(record.id))).write(
+        ExpensesCompanion(
+          status: const Value<String>('cancelled'),
+          updatedAt: Value<DateTime>(now),
+        ),
+      );
+      await _enqueue('expenses', record.id, <String, Object?>{
+        'id': record.id,
+        'status': 'cancelled',
+      });
+    });
   }
 
   Future<String> createBill(CreateBillInput input) async {
@@ -976,9 +1584,7 @@ class LocalFinancialDataSource {
         final FinancialAccountRecord account = await _account(input.accountId);
         _requireOwner(income.userId, account.userId);
         _requireSameCurrency(income.currencyCode, account.currencyCode);
-        if (_isCreditCard(account.accountType)) {
-          throw ArgumentError('Income cannot be received into a credit card.');
-        }
+        _requireCashAccount(account);
 
         final int nextBalance = FinancialCalculator.confirmIncome(
           currentBalanceMinorUnits: account.currentBalanceMinorUnits,
@@ -1031,10 +1637,20 @@ class LocalFinancialDataSource {
 
   Future<String> confirmExpense(ConfirmExpenseInput input) =>
       _database.transaction(() async {
-        final TransactionRecord? duplicate = await _transactionByKey(
-          input.idempotencyKey,
-          expectedType: 'expense',
-        );
+        _requireText(input.idempotencyKey, 'idempotencyKey');
+        final TransactionRecord? duplicate =
+            await (_database.select(_database.transactions)..where(
+                  (Transactions row) =>
+                      row.idempotencyKey.equals(input.idempotencyKey),
+                ))
+                .getSingleOrNull();
+        if (duplicate != null &&
+            duplicate.transactionType != 'expense' &&
+            duplicate.transactionType != 'credit_card_purchase') {
+          throw StateError(
+            'Idempotency key was already used by another action.',
+          );
+        }
         if (duplicate != null) return duplicate.id;
 
         final ExpenseRecord expense =
@@ -1052,17 +1668,32 @@ class LocalFinancialDataSource {
         final FinancialAccountRecord account = await _account(input.accountId);
         _requireOwner(expense.userId, account.userId);
         _requireSameCurrency(expense.currencyCode, account.currencyCode);
-        _requireCashAccount(account);
-        final int nextBalance = FinancialCalculator.confirmExpense(
-          currentBalanceMinorUnits: account.currentBalanceMinorUnits,
-          amountMinorUnits: expense.amountMinorUnits,
-        );
+        final bool isCreditCard = _isCreditCard(account.accountType);
+        late final int? nextBalance;
+        late final int? nextOutstanding;
+        if (isCreditCard) {
+          nextOutstanding = FinancialCalculator.creditCardPurchase(
+            creditLimitMinorUnits: account.creditLimitMinorUnits,
+            outstandingMinorUnits: account.outstandingCreditMinorUnits,
+            purchaseMinorUnits: expense.amountMinorUnits,
+          );
+          nextBalance = null;
+        } else {
+          _requireCashAccount(account);
+          nextBalance = FinancialCalculator.confirmExpense(
+            currentBalanceMinorUnits: account.currentBalanceMinorUnits,
+            amountMinorUnits: expense.amountMinorUnits,
+            allowNegativeBalance: account.allowNegativeBalance,
+          );
+          nextOutstanding = null;
+        }
 
         final DateTime now = _now();
         final String transactionId = _uuid.v4();
         await _setAccount(
           account,
           currentBalanceMinorUnits: nextBalance,
+          outstandingCreditMinorUnits: nextOutstanding,
           updatedAt: now,
         );
         await _insertTransaction(
@@ -1070,7 +1701,7 @@ class LocalFinancialDataSource {
           userId: expense.userId ?? account.userId,
           accountId: input.accountId,
           sourceAccountId: input.accountId,
-          type: 'expense',
+          type: isCreditCard ? 'credit_card_purchase' : 'expense',
           direction: 'outflow',
           title: expense.title,
           amountMinorUnits: expense.amountMinorUnits,
@@ -1098,6 +1729,174 @@ class LocalFinancialDataSource {
           'account_id': input.accountId,
           'spent_at': input.confirmedAt.toUtc().toIso8601String(),
           'transaction_id': transactionId,
+        });
+        return transactionId;
+      });
+
+  Future<String> recordIncome(RecordIncomeInput input) =>
+      _database.transaction(() async {
+        final TransactionRecord? duplicate = await _transactionByKey(
+          input.idempotencyKey,
+          expectedType: 'income',
+        );
+        if (duplicate != null) return duplicate.id;
+        _requireText(input.source, 'source');
+        _requirePositive(input.amountMinorUnits, 'amountMinorUnits');
+        final FinancialAccountRecord account = await _account(input.accountId);
+        _requireCashAccount(account);
+        final int nextBalance = FinancialCalculator.confirmIncome(
+          currentBalanceMinorUnits: account.currentBalanceMinorUnits,
+          amountMinorUnits: input.amountMinorUnits,
+        );
+        final DateTime now = _now();
+        final DateTime receivedAt = input.occurredAt.toUtc();
+        final String incomeId = _uuid.v4();
+        final String transactionId = _uuid.v4();
+        await _setAccount(
+          account,
+          currentBalanceMinorUnits: nextBalance,
+          updatedAt: now,
+        );
+        await _database
+            .into(_database.incomeRecords)
+            .insert(
+              IncomeRecordsCompanion.insert(
+                id: incomeId,
+                userId: Value<String?>(account.userId),
+                source: input.source.trim(),
+                amountMinorUnits: input.amountMinorUnits,
+                currencyCode: Value<String>(account.currencyCode),
+                expectedDate: receivedAt,
+                actualReceivedAt: Value<DateTime?>(receivedAt),
+                frequency: const Value<String>('one_time'),
+                receivingAccountId: Value<String?>(account.id),
+                status: const Value<String>('received'),
+                transactionId: Value<String?>(transactionId),
+                notes: Value<String?>(_trimOrNull(input.notes)),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+        await _insertTransaction(
+          id: transactionId,
+          userId: account.userId,
+          accountId: account.id,
+          destinationAccountId: account.id,
+          type: 'income',
+          direction: 'inflow',
+          title: input.source.trim(),
+          amountMinorUnits: input.amountMinorUnits,
+          currencyCode: account.currencyCode,
+          category: input.category,
+          relatedRecordType: 'income',
+          relatedRecordId: incomeId,
+          idempotencyKey: input.idempotencyKey,
+          notes: input.notes,
+          occurredAt: receivedAt,
+        );
+        await _enqueue('income_records', incomeId, <String, Object?>{
+          'id': incomeId,
+          'user_id': account.userId,
+          'source': input.source.trim(),
+          'amount': _decimalAmount(input.amountMinorUnits),
+          'currency_code': account.currencyCode,
+          'expected_date': _dateOnly(receivedAt),
+          'actual_received_at': receivedAt.toIso8601String(),
+          'frequency': 'one_time',
+          'receiving_account_id': account.id,
+          'status': 'received',
+          'transaction_id': transactionId,
+          'notes': _trimOrNull(input.notes),
+        });
+        return transactionId;
+      });
+
+  Future<String> recordExpense(RecordExpenseInput input) =>
+      _database.transaction(() async {
+        final TransactionRecord? duplicate = await _transactionByKey(
+          input.idempotencyKey,
+          expectedType: 'expense',
+        );
+        if (duplicate != null) return duplicate.id;
+        _requireText(input.title, 'title');
+        _requirePositive(input.amountMinorUnits, 'amountMinorUnits');
+        final FinancialAccountRecord account = await _account(input.accountId);
+        _requireActiveAccount(account);
+        final DateTime now = _now();
+        final String expenseId = _uuid.v4();
+        final String transactionId = _uuid.v4();
+        late final int? nextBalance;
+        late final int? nextOutstanding;
+        if (_isCreditCard(account.accountType)) {
+          nextOutstanding = FinancialCalculator.creditCardPurchase(
+            creditLimitMinorUnits: account.creditLimitMinorUnits,
+            outstandingMinorUnits: account.outstandingCreditMinorUnits,
+            purchaseMinorUnits: input.amountMinorUnits,
+          );
+          nextBalance = null;
+        } else {
+          _requireCashAccount(account);
+          nextBalance = FinancialCalculator.confirmExpense(
+            currentBalanceMinorUnits: account.currentBalanceMinorUnits,
+            amountMinorUnits: input.amountMinorUnits,
+            allowNegativeBalance: account.allowNegativeBalance,
+          );
+          nextOutstanding = null;
+        }
+        await _setAccount(
+          account,
+          currentBalanceMinorUnits: nextBalance,
+          outstandingCreditMinorUnits: nextOutstanding,
+          updatedAt: now,
+        );
+        await _database
+            .into(_database.expenses)
+            .insert(
+              ExpensesCompanion.insert(
+                id: expenseId,
+                userId: Value<String?>(account.userId),
+                title: input.title.trim(),
+                amountMinorUnits: input.amountMinorUnits,
+                currencyCode: Value<String>(account.currencyCode),
+                occurredAt: input.occurredAt.toUtc(),
+                paymentAccountId: Value<String?>(account.id),
+                description: Value<String?>(_trimOrNull(input.notes)),
+                status: const Value<String>('confirmed'),
+                transactionId: Value<String?>(transactionId),
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+        await _insertTransaction(
+          id: transactionId,
+          userId: account.userId,
+          accountId: account.id,
+          sourceAccountId: account.id,
+          type: _isCreditCard(account.accountType)
+              ? 'credit_card_purchase'
+              : 'expense',
+          direction: 'outflow',
+          title: input.title.trim(),
+          amountMinorUnits: input.amountMinorUnits,
+          currencyCode: account.currencyCode,
+          category: input.category,
+          relatedRecordType: 'expense',
+          relatedRecordId: expenseId,
+          idempotencyKey: input.idempotencyKey,
+          notes: input.notes,
+          occurredAt: input.occurredAt,
+        );
+        await _enqueue('expenses', expenseId, <String, Object?>{
+          'id': expenseId,
+          'user_id': account.userId,
+          'title': input.title.trim(),
+          'amount': _decimalAmount(input.amountMinorUnits),
+          'currency_code': account.currencyCode,
+          'account_id': account.id,
+          'spent_at': input.occurredAt.toUtc().toIso8601String(),
+          'status': 'confirmed',
+          'transaction_id': transactionId,
+          'notes': _trimOrNull(input.notes),
         });
         return transactionId;
       });
@@ -1154,6 +1953,7 @@ class LocalFinancialDataSource {
         final int nextBalance = FinancialCalculator.confirmExpense(
           currentBalanceMinorUnits: account.currentBalanceMinorUnits,
           amountMinorUnits: input.amountMinorUnits,
+          allowNegativeBalance: account.allowNegativeBalance,
         );
         final DateTime now = _now();
         final String transactionId = _uuid.v4();
@@ -1258,6 +2058,7 @@ class LocalFinancialDataSource {
     final int nextAccountBalance = FinancialCalculator.confirmExpense(
       currentBalanceMinorUnits: account.currentBalanceMinorUnits,
       amountMinorUnits: input.amountMinorUnits,
+      allowNegativeBalance: account.allowNegativeBalance,
     );
     final DateTime now = _now();
     final String transactionId = _uuid.v4();
@@ -1413,6 +2214,7 @@ class LocalFinancialDataSource {
         sourceBalanceMinorUnits: source.currentBalanceMinorUnits,
         destinationBalanceMinorUnits: destination.currentBalanceMinorUnits,
         amountMinorUnits: totalDebit,
+        allowNegativeSourceBalance: source.allowNegativeBalance,
       );
       final int destinationBalance =
           destination.currentBalanceMinorUnits + input.amountMinorUnits;
@@ -1589,11 +2391,13 @@ class LocalFinancialDataSource {
         }
         _requireActiveAccount(card);
         _requireCashAccount(cash);
+        _requireOwner(cash.userId, card.userId);
         _requireSameCurrency(cash.currencyCode, card.currencyCode);
         final CreditBalances balances = FinancialCalculator.creditCardPayment(
           cashBalanceMinorUnits: cash.currentBalanceMinorUnits,
           outstandingMinorUnits: card.outstandingCreditMinorUnits,
           amountMinorUnits: input.amountMinorUnits,
+          allowNegativeCashBalance: cash.allowNegativeBalance,
         );
         final DateTime now = _now();
         final String transactionId = _uuid.v4();
@@ -1642,6 +2446,12 @@ class LocalFinancialDataSource {
           _requireNonNegative(
             input.actualBalanceMinorUnits,
             'actualBalanceMinorUnits',
+          );
+        } else {
+          _requireAccountBalance(
+            input.actualBalanceMinorUnits,
+            account.accountType,
+            account.allowNegativeBalance,
           );
         }
         final int oldBalance = isCredit
@@ -1707,6 +2517,7 @@ class LocalFinancialDataSource {
     final int nextBalance = FinancialCalculator.confirmExpense(
       currentBalanceMinorUnits: account.currentBalanceMinorUnits,
       amountMinorUnits: input.amountMinorUnits,
+      allowNegativeBalance: account.allowNegativeBalance,
     );
     final DateTime now = _now();
     final String transactionId = _uuid.v4();
@@ -2296,6 +3107,7 @@ class LocalFinancialDataSource {
     String? sourceAccountId,
     String? destinationAccountId,
     String? categoryId,
+    String? category,
     String? relatedRecordType,
     String? relatedRecordId,
     String? relatedBillId,
@@ -2323,6 +3135,7 @@ class LocalFinancialDataSource {
             currencyCode: Value<String>(currencyCode),
             description: Value<String?>(_trimOrNull(notes)),
             categoryId: Value<String?>(categoryId),
+            category: Value<String?>(_trimOrNull(category)),
             relatedRecordType: Value<String?>(relatedRecordType),
             relatedRecordId: Value<String?>(relatedRecordId),
             relatedBillId: Value<String?>(relatedBillId),
@@ -2348,6 +3161,7 @@ class LocalFinancialDataSource {
       'amount': _decimalAmount(amountMinorUnits),
       'currency_code': currencyCode,
       'category_id': categoryId,
+      'category': _trimOrNull(category),
       'related_record_type': relatedRecordType,
       'related_record_id': relatedRecordId,
       'related_bill_id': relatedBillId,
@@ -2382,26 +3196,47 @@ class LocalFinancialDataSource {
       ),
     );
     await _enqueue('financial_accounts', account.id, <String, Object?>{
-      'id': account.id,
-      'user_id': account.userId,
-      'name': account.name,
-      'provider': account.provider,
-      'account_type': account.accountType,
-      'opening_balance': _decimalAmount(account.openingBalanceMinorUnits),
+      ..._accountSyncPayload(account),
       'current_balance': _decimalAmount(
         currentBalanceMinorUnits ?? account.currentBalanceMinorUnits,
       ),
-      'credit_limit': _decimalAmount(account.creditLimitMinorUnits),
       'outstanding_credit_balance': _decimalAmount(
         outstandingCreditMinorUnits ?? account.outstandingCreditMinorUnits,
       ),
-      'currency_code': account.currencyCode,
-      'statement_date': _dateOnly(account.statementDate),
-      'payment_due_date': _dateOnly(account.paymentDueDate),
-      'notes': account.notes,
-      'is_active': account.isActive,
     });
   }
+
+  Map<String, Object?> _accountSyncPayload(FinancialAccountRecord account) =>
+      <String, Object?>{
+        'id': account.id,
+        'user_id': account.userId,
+        'name': account.name,
+        'provider': account.provider,
+        'account_type': account.accountType,
+        'opening_balance': _decimalAmount(account.openingBalanceMinorUnits),
+        'current_balance': _decimalAmount(account.currentBalanceMinorUnits),
+        'credit_limit': _decimalAmount(account.creditLimitMinorUnits),
+        'outstanding_credit_balance': _decimalAmount(
+          account.outstandingCreditMinorUnits,
+        ),
+        'opening_outstanding_credit_balance': _decimalAmount(
+          account.openingOutstandingCreditMinorUnits,
+        ),
+        'statement_balance': _decimalAmount(account.statementBalanceMinorUnits),
+        'minimum_payment': _decimalAmount(account.minimumPaymentMinorUnits),
+        'currency_code': account.currencyCode,
+        'statement_date': _dateOnly(account.statementDate),
+        'payment_due_date': _dateOnly(account.paymentDueDate),
+        'account_number_suffix': account.accountNumberSuffix,
+        'linked_account_id': account.linkedAccountId,
+        'custom_type_name': account.customTypeName,
+        'icon_key': account.iconKey,
+        'color_argb': account.colorArgb,
+        'notes': account.notes,
+        'allow_negative_balance': account.allowNegativeBalance,
+        'is_active': account.isActive,
+        'archived_at': account.archivedAt?.toIso8601String(),
+      };
 
   Future<void> _enqueue(
     String entityType,
@@ -2422,7 +3257,38 @@ class LocalFinancialDataSource {
     creditLimitMinorUnits: row.creditLimitMinorUnits,
     outstandingCreditMinorUnits: row.outstandingCreditMinorUnits,
     isActive: row.isActive && row.archivedAt == null,
+    linkedAccountId: row.linkedAccountId,
+    allowNegativeBalance: row.allowNegativeBalance,
   );
+
+  FinancialAccount _financialAccountEntity(FinancialAccountRecord row) =>
+      FinancialAccount(
+        id: row.id,
+        name: row.name,
+        accountType: row.accountType,
+        currentBalanceMinorUnits: row.currentBalanceMinorUnits,
+        currencyCode: row.currencyCode,
+        isActive: row.isActive,
+        openingBalanceMinorUnits: row.openingBalanceMinorUnits,
+        provider: row.provider,
+        creditLimitMinorUnits: row.creditLimitMinorUnits,
+        outstandingCreditMinorUnits: row.outstandingCreditMinorUnits,
+        openingOutstandingCreditMinorUnits:
+            row.openingOutstandingCreditMinorUnits,
+        statementBalanceMinorUnits: row.statementBalanceMinorUnits,
+        minimumPaymentMinorUnits: row.minimumPaymentMinorUnits,
+        statementDate: row.statementDate,
+        paymentDueDate: row.paymentDueDate,
+        accountNumberSuffix: row.accountNumberSuffix,
+        linkedAccountId: row.linkedAccountId,
+        customTypeName: row.customTypeName,
+        iconKey: row.iconKey,
+        colorArgb: row.colorArgb,
+        notes: row.notes,
+        allowNegativeBalance: row.allowNegativeBalance,
+        archivedAt: row.archivedAt,
+        createdAt: row.createdAt,
+      );
 
   FinancialTransactionView _transactionView(TransactionRecord row) =>
       FinancialTransactionView(
@@ -2437,12 +3303,22 @@ class LocalFinancialDataSource {
         relatedRecordId:
             row.relatedRecordId ?? row.relatedBillId ?? row.relatedLoanId,
         reversalOfId: row.reversalOfId,
+        direction: row.direction,
+        category: row.category,
+        description: row.description,
+        notes: row.notes,
       );
 
   void _requireCashAccount(FinancialAccountRecord account) {
     _requireActiveAccount(account);
     if (_isCreditCard(account.accountType)) {
       throw ArgumentError('This operation requires an actual cash account.');
+    }
+    if (account.accountType == 'debit_card' &&
+        account.linkedAccountId != null) {
+      throw ArgumentError(
+        'Use the linked deposit account to change this debit card balance.',
+      );
     }
   }
 
@@ -2517,6 +3393,31 @@ class LocalFinancialDataSource {
 
   void _requireNonNegative(int amount, String name) {
     if (amount < 0) throw ArgumentError.value(amount, name);
+  }
+
+  void _requireAccountBalance(
+    int amount,
+    String accountType,
+    bool allowNegativeBalance,
+  ) {
+    if (amount >= 0) return;
+    if (!allowNegativeBalance ||
+        !<String>{'bank', 'custom', 'other'}.contains(accountType)) {
+      throw ArgumentError(
+        'A negative balance is only allowed for eligible overdraft accounts.',
+      );
+    }
+  }
+
+  void _validateAccountNumberSuffix(String? suffix) {
+    final String? value = _trimOrNull(suffix);
+    if (value != null && !RegExp(r'^\d{4}$').hasMatch(value)) {
+      throw ArgumentError.value(
+        suffix,
+        'accountNumberSuffix',
+        'Store only the last four digits.',
+      );
+    }
   }
 
   DateTime _now() => DateTime.now().toUtc();

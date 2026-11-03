@@ -23,6 +23,7 @@ import 'package:bill_tracker/features/settings/presentation/screens/settings_scr
 import 'package:bill_tracker/features/shared/presentation/screens/module_placeholder_screen.dart';
 import 'package:bill_tracker/features/transactions/presentation/screens/transactions_screen.dart';
 import 'package:bill_tracker/features/wallets/presentation/screens/wallets_screen.dart';
+import 'package:bill_tracker/features/wallets/presentation/screens/account_details_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -118,6 +119,14 @@ GoRouter createAppRouter({
               path: RouteNames.walletsPath,
               name: RouteNames.wallets,
               builder: (context, state) => const WalletsScreen(),
+              routes: <RouteBase>[
+                GoRoute(
+                  path: ':accountId',
+                  builder: (context, state) => AccountDetailsScreen(
+                    accountId: state.pathParameters['accountId']!,
+                  ),
+                ),
+              ],
             ),
           ],
         ),

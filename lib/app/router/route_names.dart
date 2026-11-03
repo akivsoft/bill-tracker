@@ -29,4 +29,6 @@ class RouteNames {
   static const String startupErrorPath = '/startup-error';
 
   static String moreModule(String slug) => '$morePath/$slug';
+
+  static String walletAccount(String accountId) => '$walletsPath/$accountId';
 }

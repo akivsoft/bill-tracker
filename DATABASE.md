@@ -2,11 +2,11 @@
 
 ## Local SQLite with Drift
 
-Drift schema version 3 is the local source of truth and remains available without Supabase or network access. Monetary values are stored as integer minor units (centavos for PHP). Tables include:
+Drift schema version 4 is the local source of truth and remains available without Supabase or network access. Monetary values are stored as integer minor units (centavos for PHP). Tables include:
 
 1. `financial_accounts` — account/provider/type, live balance, credit limit, outstanding card balance, statement and due dates, active/archive state.
 2. `transactions` — immutable income, expense, bill/loan payment, credit-card activity, transfers, savings contributions, balance adjustments, and reversals.
-3. `income_sources` and `income_records` — expected and received income with the receiving account and linked transaction.
+3. `income_sources` and `income_records` — expected, received, cancelled, and reversed income with category/source type, frequency, receiving account, and linked transaction.
 4. `categories` and `expenses` — user-defined income/expense/bill/loan categories and planned or confirmed expenses.
 5. `bills` and `bill_payments` — recurrence/reminder settings and per-occurrence partial payment history.
 6. `loan_providers`, `loans`, `loan_installments`, and `loan_payments` — multiple loans per provider, individual installment schedules, partial payments, and payment history.
@@ -20,7 +20,7 @@ Primary keys are UUID strings. Relationships use foreign keys, and indexes cover
 
 ### Migrations
 
-Schema version 2 adds the financial tables and rebuilds version 1 tables through Drift `TableMigration`. It preserves existing rows and carries opening account balances into the current balance, loan principals into remaining balances, and old transaction descriptions into titles. Schema version 3 adds `app_preferences` without changing existing financial rows. `test/unit/database_migration_test.dart` verifies the earlier upgrade and preferences defaults.
+Schema version 2 adds the financial tables and rebuilds version 1 tables through Drift `TableMigration`. It preserves existing rows and carries opening account balances into the current balance, loan principals into remaining balances, and old transaction descriptions into titles. Schema version 3 adds `app_preferences`. Schema version 4 adds wallet metadata and preserves card opening liabilities during upgrades. `test/unit/database_migration_test.dart` verifies the v1 upgrade and preferences defaults.
 
 Any local schema edit must increment `AppDatabase.schemaVersion`, add an upgrade step, regenerate `app_database.g.dart`, and add a migration test where existing data could be affected.
 
@@ -29,11 +29,16 @@ Any local schema edit must increment `AppDatabase.schemaVersion`, add an upgrade
 - Available money sums active cash, deposit, debit, and e-wallet balances in the selected currency. Credit-card limits and unused credit are excluded.
 - Available credit is `credit limit - outstanding balance`.
 - Expected income and planned allocations never change actual account balances.
+- Planned income and expense records can be edited or cancelled without changing account balances. Receipt/payment confirmation performs the balance update and transaction insert atomically.
+- Recurring income/expense settings are templates only; they never generate a confirmed transaction or deduct money automatically.
+- Expense receipt images are copied into the app's private documents directory; the database stores the local attachment reference.
+- Income categories use the existing `income_sources.source_type`; expense categories use the shared `categories` table.
 - Creating or reaching the due date of a bill does not deduct money. Confirmed bill payments do.
 - Income, expense, bill payment, loan payment, transfer, credit-card purchase/payment, savings contribution, reconciliation, and reversal operations update linked rows in one SQLite transaction.
 - Retried commands must reuse the same idempotency key. Unique indexes and entity state prevent duplicate deductions.
 - A transfer changes both account balances but is neither income nor expense. Any fee is a separate expense.
 - A credit-card purchase increases outstanding credit and is recorded as an expense. A card payment reduces the selected cash account and card outstanding balance without creating a second expense.
+- Credit-card expenses created as planned records increase card debt only when the user confirms the payment; they never deduct from a cash account.
 - Reversals add a new transaction and preserve the original. Reversing a loan payment also restores the loan and installment amounts.
 - Projection is calculated separately: actual available money + expected income - upcoming obligations - planned expenses.
 

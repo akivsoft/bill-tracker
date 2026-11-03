@@ -13,6 +13,7 @@ final class FinancialCalculator {
         (AccountBalance account) =>
             account.isActive &&
             !account.isCreditAccount &&
+            !account.isLinkedDebitCard &&
             account.currencyCode == currencyCode,
       )
       .fold<int>(0, (int total, AccountBalance account) {
@@ -57,9 +58,12 @@ final class FinancialCalculator {
   static int confirmExpense({
     required int currentBalanceMinorUnits,
     required int amountMinorUnits,
+    bool allowNegativeBalance = false,
   }) {
     _requirePositive(amountMinorUnits, 'amountMinorUnits');
-    _requireSufficientBalance(currentBalanceMinorUnits, amountMinorUnits);
+    if (!allowNegativeBalance) {
+      _requireSufficientBalance(currentBalanceMinorUnits, amountMinorUnits);
+    }
     return currentBalanceMinorUnits - amountMinorUnits;
   }
 
@@ -67,9 +71,12 @@ final class FinancialCalculator {
     required int sourceBalanceMinorUnits,
     required int destinationBalanceMinorUnits,
     required int amountMinorUnits,
+    bool allowNegativeSourceBalance = false,
   }) {
     _requirePositive(amountMinorUnits, 'amountMinorUnits');
-    _requireSufficientBalance(sourceBalanceMinorUnits, amountMinorUnits);
+    if (!allowNegativeSourceBalance) {
+      _requireSufficientBalance(sourceBalanceMinorUnits, amountMinorUnits);
+    }
     return TransferBalances(
       sourceBalanceMinorUnits: sourceBalanceMinorUnits - amountMinorUnits,
       destinationBalanceMinorUnits:
@@ -97,14 +104,27 @@ final class FinancialCalculator {
     required int cashBalanceMinorUnits,
     required int outstandingMinorUnits,
     required int amountMinorUnits,
+    bool allowNegativeCashBalance = false,
   }) {
     _requirePositive(amountMinorUnits, 'amountMinorUnits');
-    _requireSufficientBalance(cashBalanceMinorUnits, amountMinorUnits);
+    if (!allowNegativeCashBalance) {
+      _requireSufficientBalance(cashBalanceMinorUnits, amountMinorUnits);
+    }
     _requireSufficientBalance(outstandingMinorUnits, amountMinorUnits);
     return CreditBalances(
       cashBalanceMinorUnits: cashBalanceMinorUnits - amountMinorUnits,
       outstandingMinorUnits: outstandingMinorUnits - amountMinorUnits,
     );
+  }
+
+  static int creditUtilizationBasisPoints({
+    required int creditLimitMinorUnits,
+    required int outstandingMinorUnits,
+  }) {
+    _requireNonNegative(creditLimitMinorUnits, 'creditLimitMinorUnits');
+    _requireNonNegative(outstandingMinorUnits, 'outstandingMinorUnits');
+    if (creditLimitMinorUnits == 0) return 0;
+    return outstandingMinorUnits * 10000 ~/ creditLimitMinorUnits;
   }
 
   static LoanPaymentBalances applyLoanPayment({

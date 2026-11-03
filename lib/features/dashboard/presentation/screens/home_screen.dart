@@ -8,6 +8,7 @@ import 'package:bill_tracker/core/widgets/empty_state.dart';
 import 'package:bill_tracker/core/widgets/section_header.dart';
 import 'package:bill_tracker/core/widgets/summary_card.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
+import 'package:bill_tracker/features/dashboard/domain/services/cash_flow_calculator.dart';
 import 'package:bill_tracker/features/settings/domain/entities/user_preferences.dart';
 import 'package:bill_tracker/features/settings/presentation/providers/user_preferences_provider.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
@@ -72,6 +73,8 @@ class HomeScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: AppSpacing.large),
                 _AvailableMoneyCard(currencyCode: currencyCode),
+                const SizedBox(height: AppSpacing.medium),
+                const _IncomeExpenseSummary(currencyCode: 'PHP'),
                 const SizedBox(height: AppSpacing.medium),
                 LayoutBuilder(
                   builder: (BuildContext context, BoxConstraints constraints) {
@@ -281,6 +284,140 @@ class HomeScreen extends ConsumerWidget {
   };
 
   String _labelForTransaction(String type) => type.replaceAll('_', ' ');
+}
+
+class _IncomeExpenseSummary extends ConsumerStatefulWidget {
+  const _IncomeExpenseSummary({required this.currencyCode});
+
+  final String currencyCode;
+
+  @override
+  ConsumerState<_IncomeExpenseSummary> createState() =>
+      _IncomeExpenseSummaryState();
+}
+
+class _IncomeExpenseSummaryState extends ConsumerState<_IncomeExpenseSummary> {
+  String _period = 'month';
+
+  @override
+  Widget build(BuildContext context) {
+    final incomes = ref.watch(incomeOverviewProvider);
+    final expenses = ref.watch(expensesOverviewProvider);
+    final categories = ref.watch(expenseCategoriesProvider);
+    final DateTime now = DateTime.now();
+    final DateTime start = switch (_period) {
+      'day' => DateTime(now.year, now.month, now.day),
+      'week' => DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: now.weekday - 1)),
+      'quarter' => DateTime(now.year, ((now.month - 1) ~/ 3) * 3 + 1),
+      'year' => DateTime(now.year),
+      _ => DateTime(now.year, now.month),
+    };
+    final CashFlowSummary flow = CashFlowCalculator.summarize(
+      incomes: incomes.asData?.value ?? const <IncomeEntry>[],
+      expenses: expenses.asData?.value ?? const <ExpenseEntry>[],
+      start: start,
+      endExclusive: DateTime(now.year, now.month, now.day + 1),
+    );
+    final Map<String, String> names = <String, String>{
+      for (final CategoryEntry item
+          in categories.asData?.value ?? const <CategoryEntry>[])
+        item.id: item.name,
+    };
+    final List<MapEntry<String?, int>> topCategories =
+        flow.expensesByCategory.entries.toList()..sort(
+          (MapEntry<String?, int> a, MapEntry<String?, int> b) =>
+              b.value.compareTo(a.value),
+        );
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Expanded(
+                child: Text(
+                  'Income and expenses',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+              DropdownButton<String>(
+                value: _period,
+                items: const <DropdownMenuItem<String>>[
+                  DropdownMenuItem(value: 'day', child: Text('Today')),
+                  DropdownMenuItem(value: 'week', child: Text('Week')),
+                  DropdownMenuItem(value: 'month', child: Text('Month')),
+                  DropdownMenuItem(value: 'quarter', child: Text('Quarter')),
+                  DropdownMenuItem(value: 'year', child: Text('Year')),
+                ],
+                onChanged: (String? value) =>
+                    setState(() => _period = value ?? 'month'),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.small),
+          _flowLine(
+            'Income received',
+            flow.incomeReceivedMinorUnits,
+            Icons.check_circle_outline,
+          ),
+          _flowLine(
+            'Expected income',
+            flow.expectedIncomeMinorUnits,
+            Icons.schedule_outlined,
+          ),
+          _flowLine(
+            'Recorded expenses',
+            flow.expensesMinorUnits,
+            Icons.north_east_rounded,
+          ),
+          _flowLine(
+            'Recorded cash flow',
+            flow.remainingCashFlowMinorUnits,
+            Icons.swap_vert_rounded,
+          ),
+          if (topCategories.isNotEmpty) ...<Widget>[
+            const Divider(height: AppSpacing.large),
+            Text(
+              'Spending by category',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            ...topCategories
+                .take(3)
+                .map(
+                  (MapEntry<String?, int> entry) => _flowLine(
+                    names[entry.key] ?? 'Uncategorised',
+                    entry.value,
+                    Icons.label_outline,
+                  ),
+                ),
+          ],
+          if (incomes.isLoading || expenses.isLoading)
+            const LinearProgressIndicator(),
+          if (incomes.hasError || expenses.hasError)
+            const Text('Some income or expense totals could not be loaded.'),
+        ],
+      ),
+    );
+  }
+
+  Widget _flowLine(String label, int amount, IconData icon) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xSmall),
+    child: Row(
+      children: <Widget>[
+        Icon(icon, size: 18),
+        const SizedBox(width: AppSpacing.small),
+        Expanded(child: Text(label)),
+        Text(
+          Money(amount, currencyCode: widget.currencyCode).format(),
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+      ],
+    ),
+  );
 }
 
 class _AvailableMoneyCard extends ConsumerWidget {
