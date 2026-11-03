@@ -7,7 +7,52 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('v1 local records survive the v3 schema migration', () async {
+  test('v6 payday schedules and allocations gain Phase 8 metadata', () async {
+    final Directory directory = await Directory.systemTemp.createTemp(
+      'myfinance-v6-migration-',
+    );
+    final File file = File(
+      '${directory.path}${Platform.pathSeparator}finance.db',
+    );
+    final _VersionSixPlanningDatabase oldDatabase = _VersionSixPlanningDatabase(
+      NativeDatabase(file),
+    );
+    try {
+      await oldDatabase.customStatement(
+        "INSERT INTO payday_schedules (id, name, payday_date, created_at, updated_at) "
+        "VALUES ('legacy-payday', 'Salary', 1794700800000, 0, 0)",
+      );
+      await oldDatabase.customStatement(
+        "INSERT INTO financial_allocations "
+        "(id, payday_schedule_id, allocated_amount_minor_units, allocation_category, allocation_key, created_at, updated_at) "
+        "VALUES ('legacy-allocation', 'legacy-payday', 50000, 'rent', 'legacy-key', 0, 0)",
+      );
+    } finally {
+      await oldDatabase.close();
+    }
+
+    final AppDatabase upgraded = AppDatabase(NativeDatabase(file));
+    try {
+      final PaydayScheduleRecord payday = await (upgraded.select(
+        upgraded.paydaySchedules,
+      )..where((row) => row.id.equals('legacy-payday'))).getSingle();
+      final FinancialAllocationRecord allocation = await (upgraded.select(
+        upgraded.financialAllocations,
+      )..where((row) => row.id.equals('legacy-allocation'))).getSingle();
+      expect(payday.name, 'Salary');
+      expect(payday.frequency, 'one_time');
+      expect(payday.currencyCode, 'PHP');
+      expect(payday.isActive, isTrue);
+      expect(allocation.allocatedAmountMinorUnits, 50000);
+      expect(allocation.priority, 3);
+      expect(allocation.fulfilledAmountMinorUnits, 0);
+    } finally {
+      await upgraded.close();
+      await directory.delete(recursive: true);
+    }
+  });
+
+  test('v1 local records survive the v7 schema migration', () async {
     final Directory directory = await Directory.systemTemp.createTemp(
       'myfinance-migration-',
     );
@@ -54,6 +99,43 @@ void main() {
       expect(transaction.title, 'Salary');
       expect(transaction.destinationAccountId, 'legacy-account');
       expect(loan.remainingBalanceMinorUnits, 90000);
+      expect(loan.totalRepaymentMinorUnits, 90000);
+
+      final List<QueryRow> paydayColumns = await upgraded
+          .customSelect('PRAGMA table_info(payday_schedules)')
+          .get();
+      expect(
+        paydayColumns.map((QueryRow row) => row.read<String>('name')),
+        containsAll(<String>[
+          'frequency',
+          'currency_code',
+          'receiving_account_id',
+          'income_record_id',
+          'actual_received_at',
+          'is_active',
+        ]),
+      );
+      final List<QueryRow> allocationColumns = await upgraded
+          .customSelect('PRAGMA table_info(financial_allocations)')
+          .get();
+      expect(
+        allocationColumns.map((QueryRow row) => row.read<String>('name')),
+        containsAll(<String>[
+          'period_date',
+          'related_due_date',
+          'related_savings_goal_id',
+          'priority',
+          'fulfilled_amount_minor_units',
+        ]),
+      );
+
+      final List<QueryRow> loanPaymentColumns = await upgraded
+          .customSelect('PRAGMA table_info(loan_payments)')
+          .get();
+      final QueryRow accountColumn = loanPaymentColumns.singleWhere(
+        (QueryRow row) => row.read<String>('name') == 'account_id',
+      );
+      expect(accountColumn.read<int>('notnull'), 0);
 
       final preferences = await LocalUserPreferencesRepository(upgraded).load();
       expect(preferences.onboardingComplete, isFalse);
@@ -63,6 +145,36 @@ void main() {
       await directory.delete(recursive: true);
     }
   });
+}
+
+final class _VersionSixPlanningDatabase extends AppDatabase {
+  _VersionSixPlanningDatabase(super.executor);
+
+  @override
+  int get schemaVersion => 6;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (Migrator migrator) async {
+      await migrator.database.customStatement(
+        'CREATE TABLE payday_schedules ('
+        'id TEXT NOT NULL PRIMARY KEY, user_id TEXT, name TEXT NOT NULL, '
+        'payday_date INTEGER NOT NULL, expected_income_minor_units INTEGER NOT NULL DEFAULT 0, '
+        'actual_income_minor_units INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT \'planned\', '
+        'notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, archived_at INTEGER, '
+        'local_version INTEGER NOT NULL DEFAULT 1, server_version INTEGER, sync_state TEXT NOT NULL DEFAULT \'pending\')',
+      );
+      await migrator.database.customStatement(
+        'CREATE TABLE financial_allocations ('
+        'id TEXT NOT NULL PRIMARY KEY, user_id TEXT, payday_schedule_id TEXT NOT NULL, '
+        'expected_income_minor_units INTEGER NOT NULL DEFAULT 0, actual_income_minor_units INTEGER NOT NULL DEFAULT 0, '
+        'allocated_amount_minor_units INTEGER NOT NULL, allocation_category TEXT NOT NULL, '
+        'related_bill_id TEXT, related_installment_id TEXT, allocation_key TEXT NOT NULL UNIQUE, '
+        'status TEXT NOT NULL DEFAULT \'planned\', notes TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, '
+        'local_version INTEGER NOT NULL DEFAULT 1, server_version INTEGER, sync_state TEXT NOT NULL DEFAULT \'pending\')',
+      );
+    },
+  );
 }
 
 final class _VersionOneDatabase extends AppDatabase {

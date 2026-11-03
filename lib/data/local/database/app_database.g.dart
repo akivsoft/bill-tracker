@@ -4953,6 +4953,18 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
         requiredDuringInsert: false,
         defaultValue: const Constant(0),
       );
+  static const VerificationMeta _totalRepaymentMinorUnitsMeta =
+      const VerificationMeta('totalRepaymentMinorUnits');
+  @override
+  late final GeneratedColumn<int> totalRepaymentMinorUnits =
+      GeneratedColumn<int>(
+        'total_repayment_minor_units',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
+      );
   static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
     'currencyCode',
   );
@@ -5169,6 +5181,7 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
     remainingBalanceMinorUnits,
     interestRateBasisPoints,
     totalInterestMinorUnits,
+    totalRepaymentMinorUnits,
     currencyCode,
     openedAt,
     endDate,
@@ -5271,6 +5284,15 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
         totalInterestMinorUnits.isAcceptableOrUnknown(
           data['total_interest_minor_units']!,
           _totalInterestMinorUnitsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('total_repayment_minor_units')) {
+      context.handle(
+        _totalRepaymentMinorUnitsMeta,
+        totalRepaymentMinorUnits.isAcceptableOrUnknown(
+          data['total_repayment_minor_units']!,
+          _totalRepaymentMinorUnitsMeta,
         ),
       );
     }
@@ -5463,6 +5485,10 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
         DriftSqlType.int,
         data['${effectivePrefix}total_interest_minor_units'],
       )!,
+      totalRepaymentMinorUnits: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}total_repayment_minor_units'],
+      )!,
       currencyCode: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}currency_code'],
@@ -5554,6 +5580,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
   final int remainingBalanceMinorUnits;
   final int interestRateBasisPoints;
   final int totalInterestMinorUnits;
+  final int totalRepaymentMinorUnits;
   final String currencyCode;
   final DateTime openedAt;
   final DateTime? endDate;
@@ -5582,6 +5609,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     required this.remainingBalanceMinorUnits,
     required this.interestRateBasisPoints,
     required this.totalInterestMinorUnits,
+    required this.totalRepaymentMinorUnits,
     required this.currencyCode,
     required this.openedAt,
     this.endDate,
@@ -5619,6 +5647,9 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     );
     map['interest_rate_basis_points'] = Variable<int>(interestRateBasisPoints);
     map['total_interest_minor_units'] = Variable<int>(totalInterestMinorUnits);
+    map['total_repayment_minor_units'] = Variable<int>(
+      totalRepaymentMinorUnits,
+    );
     map['currency_code'] = Variable<String>(currencyCode);
     map['opened_at'] = Variable<DateTime>(openedAt);
     if (!nullToAbsent || endDate != null) {
@@ -5671,6 +5702,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       remainingBalanceMinorUnits: Value(remainingBalanceMinorUnits),
       interestRateBasisPoints: Value(interestRateBasisPoints),
       totalInterestMinorUnits: Value(totalInterestMinorUnits),
+      totalRepaymentMinorUnits: Value(totalRepaymentMinorUnits),
       currencyCode: Value(currencyCode),
       openedAt: Value(openedAt),
       endDate: endDate == null && nullToAbsent
@@ -5729,6 +5761,9 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       totalInterestMinorUnits: serializer.fromJson<int>(
         json['totalInterestMinorUnits'],
       ),
+      totalRepaymentMinorUnits: serializer.fromJson<int>(
+        json['totalRepaymentMinorUnits'],
+      ),
       currencyCode: serializer.fromJson<String>(json['currencyCode']),
       openedAt: serializer.fromJson<DateTime>(json['openedAt']),
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
@@ -5770,6 +5805,9 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       'totalInterestMinorUnits': serializer.toJson<int>(
         totalInterestMinorUnits,
       ),
+      'totalRepaymentMinorUnits': serializer.toJson<int>(
+        totalRepaymentMinorUnits,
+      ),
       'currencyCode': serializer.toJson<String>(currencyCode),
       'openedAt': serializer.toJson<DateTime>(openedAt),
       'endDate': serializer.toJson<DateTime?>(endDate),
@@ -5803,6 +5841,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     int? remainingBalanceMinorUnits,
     int? interestRateBasisPoints,
     int? totalInterestMinorUnits,
+    int? totalRepaymentMinorUnits,
     String? currencyCode,
     DateTime? openedAt,
     Value<DateTime?> endDate = const Value.absent(),
@@ -5834,6 +5873,8 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
         interestRateBasisPoints ?? this.interestRateBasisPoints,
     totalInterestMinorUnits:
         totalInterestMinorUnits ?? this.totalInterestMinorUnits,
+    totalRepaymentMinorUnits:
+        totalRepaymentMinorUnits ?? this.totalRepaymentMinorUnits,
     currencyCode: currencyCode ?? this.currencyCode,
     openedAt: openedAt ?? this.openedAt,
     endDate: endDate.present ? endDate.value : this.endDate,
@@ -5883,6 +5924,9 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       totalInterestMinorUnits: data.totalInterestMinorUnits.present
           ? data.totalInterestMinorUnits.value
           : this.totalInterestMinorUnits,
+      totalRepaymentMinorUnits: data.totalRepaymentMinorUnits.present
+          ? data.totalRepaymentMinorUnits.value
+          : this.totalRepaymentMinorUnits,
       currencyCode: data.currencyCode.present
           ? data.currencyCode.value
           : this.currencyCode,
@@ -5938,6 +5982,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
           ..write('remainingBalanceMinorUnits: $remainingBalanceMinorUnits, ')
           ..write('interestRateBasisPoints: $interestRateBasisPoints, ')
           ..write('totalInterestMinorUnits: $totalInterestMinorUnits, ')
+          ..write('totalRepaymentMinorUnits: $totalRepaymentMinorUnits, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('openedAt: $openedAt, ')
           ..write('endDate: $endDate, ')
@@ -5971,6 +6016,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     remainingBalanceMinorUnits,
     interestRateBasisPoints,
     totalInterestMinorUnits,
+    totalRepaymentMinorUnits,
     currencyCode,
     openedAt,
     endDate,
@@ -6003,6 +6049,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
           other.remainingBalanceMinorUnits == this.remainingBalanceMinorUnits &&
           other.interestRateBasisPoints == this.interestRateBasisPoints &&
           other.totalInterestMinorUnits == this.totalInterestMinorUnits &&
+          other.totalRepaymentMinorUnits == this.totalRepaymentMinorUnits &&
           other.currencyCode == this.currencyCode &&
           other.openedAt == this.openedAt &&
           other.endDate == this.endDate &&
@@ -6034,6 +6081,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
   final Value<int> remainingBalanceMinorUnits;
   final Value<int> interestRateBasisPoints;
   final Value<int> totalInterestMinorUnits;
+  final Value<int> totalRepaymentMinorUnits;
   final Value<String> currencyCode;
   final Value<DateTime> openedAt;
   final Value<DateTime?> endDate;
@@ -6063,6 +6111,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     this.remainingBalanceMinorUnits = const Value.absent(),
     this.interestRateBasisPoints = const Value.absent(),
     this.totalInterestMinorUnits = const Value.absent(),
+    this.totalRepaymentMinorUnits = const Value.absent(),
     this.currencyCode = const Value.absent(),
     this.openedAt = const Value.absent(),
     this.endDate = const Value.absent(),
@@ -6093,6 +6142,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     this.remainingBalanceMinorUnits = const Value.absent(),
     this.interestRateBasisPoints = const Value.absent(),
     this.totalInterestMinorUnits = const Value.absent(),
+    this.totalRepaymentMinorUnits = const Value.absent(),
     this.currencyCode = const Value.absent(),
     required DateTime openedAt,
     this.endDate = const Value.absent(),
@@ -6129,6 +6179,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     Expression<int>? remainingBalanceMinorUnits,
     Expression<int>? interestRateBasisPoints,
     Expression<int>? totalInterestMinorUnits,
+    Expression<int>? totalRepaymentMinorUnits,
     Expression<String>? currencyCode,
     Expression<DateTime>? openedAt,
     Expression<DateTime>? endDate,
@@ -6163,6 +6214,8 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
         'interest_rate_basis_points': interestRateBasisPoints,
       if (totalInterestMinorUnits != null)
         'total_interest_minor_units': totalInterestMinorUnits,
+      if (totalRepaymentMinorUnits != null)
+        'total_repayment_minor_units': totalRepaymentMinorUnits,
       if (currencyCode != null) 'currency_code': currencyCode,
       if (openedAt != null) 'opened_at': openedAt,
       if (endDate != null) 'end_date': endDate,
@@ -6196,6 +6249,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     Value<int>? remainingBalanceMinorUnits,
     Value<int>? interestRateBasisPoints,
     Value<int>? totalInterestMinorUnits,
+    Value<int>? totalRepaymentMinorUnits,
     Value<String>? currencyCode,
     Value<DateTime>? openedAt,
     Value<DateTime?>? endDate,
@@ -6229,6 +6283,8 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
           interestRateBasisPoints ?? this.interestRateBasisPoints,
       totalInterestMinorUnits:
           totalInterestMinorUnits ?? this.totalInterestMinorUnits,
+      totalRepaymentMinorUnits:
+          totalRepaymentMinorUnits ?? this.totalRepaymentMinorUnits,
       currencyCode: currencyCode ?? this.currencyCode,
       openedAt: openedAt ?? this.openedAt,
       endDate: endDate ?? this.endDate,
@@ -6286,6 +6342,11 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     if (totalInterestMinorUnits.present) {
       map['total_interest_minor_units'] = Variable<int>(
         totalInterestMinorUnits.value,
+      );
+    }
+    if (totalRepaymentMinorUnits.present) {
+      map['total_repayment_minor_units'] = Variable<int>(
+        totalRepaymentMinorUnits.value,
       );
     }
     if (currencyCode.present) {
@@ -6362,6 +6423,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
           ..write('remainingBalanceMinorUnits: $remainingBalanceMinorUnits, ')
           ..write('interestRateBasisPoints: $interestRateBasisPoints, ')
           ..write('totalInterestMinorUnits: $totalInterestMinorUnits, ')
+          ..write('totalRepaymentMinorUnits: $totalRepaymentMinorUnits, ')
           ..write('currencyCode: $currencyCode, ')
           ..write('openedAt: $openedAt, ')
           ..write('endDate: $endDate, ')
@@ -12907,9 +12969,9 @@ class $LoanPaymentsTable extends LoanPayments
   late final GeneratedColumn<String> accountId = GeneratedColumn<String>(
     'account_id',
     aliasedName,
-    false,
+    true,
     type: DriftSqlType.string,
-    requiredDuringInsert: true,
+    requiredDuringInsert: false,
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES financial_accounts (id)',
     ),
@@ -13099,8 +13161,6 @@ class $LoanPaymentsTable extends LoanPayments
         _accountIdMeta,
         accountId.isAcceptableOrUnknown(data['account_id']!, _accountIdMeta),
       );
-    } else if (isInserting) {
-      context.missing(_accountIdMeta);
     }
     if (data.containsKey('transaction_id')) {
       context.handle(
@@ -13219,7 +13279,7 @@ class $LoanPaymentsTable extends LoanPayments
       accountId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}account_id'],
-      )!,
+      ),
       transactionId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}transaction_id'],
@@ -13279,7 +13339,7 @@ class LoanPaymentRecord extends DataClass
   final String? userId;
   final String loanId;
   final String? installmentId;
-  final String accountId;
+  final String? accountId;
   final String? transactionId;
   final String? idempotencyKey;
   final int amountMinorUnits;
@@ -13296,7 +13356,7 @@ class LoanPaymentRecord extends DataClass
     this.userId,
     required this.loanId,
     this.installmentId,
-    required this.accountId,
+    this.accountId,
     this.transactionId,
     this.idempotencyKey,
     required this.amountMinorUnits,
@@ -13320,7 +13380,9 @@ class LoanPaymentRecord extends DataClass
     if (!nullToAbsent || installmentId != null) {
       map['installment_id'] = Variable<String>(installmentId);
     }
-    map['account_id'] = Variable<String>(accountId);
+    if (!nullToAbsent || accountId != null) {
+      map['account_id'] = Variable<String>(accountId);
+    }
     if (!nullToAbsent || transactionId != null) {
       map['transaction_id'] = Variable<String>(transactionId);
     }
@@ -13353,7 +13415,9 @@ class LoanPaymentRecord extends DataClass
       installmentId: installmentId == null && nullToAbsent
           ? const Value.absent()
           : Value(installmentId),
-      accountId: Value(accountId),
+      accountId: accountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(accountId),
       transactionId: transactionId == null && nullToAbsent
           ? const Value.absent()
           : Value(transactionId),
@@ -13386,7 +13450,7 @@ class LoanPaymentRecord extends DataClass
       userId: serializer.fromJson<String?>(json['userId']),
       loanId: serializer.fromJson<String>(json['loanId']),
       installmentId: serializer.fromJson<String?>(json['installmentId']),
-      accountId: serializer.fromJson<String>(json['accountId']),
+      accountId: serializer.fromJson<String?>(json['accountId']),
       transactionId: serializer.fromJson<String?>(json['transactionId']),
       idempotencyKey: serializer.fromJson<String?>(json['idempotencyKey']),
       amountMinorUnits: serializer.fromJson<int>(json['amountMinorUnits']),
@@ -13408,7 +13472,7 @@ class LoanPaymentRecord extends DataClass
       'userId': serializer.toJson<String?>(userId),
       'loanId': serializer.toJson<String>(loanId),
       'installmentId': serializer.toJson<String?>(installmentId),
-      'accountId': serializer.toJson<String>(accountId),
+      'accountId': serializer.toJson<String?>(accountId),
       'transactionId': serializer.toJson<String?>(transactionId),
       'idempotencyKey': serializer.toJson<String?>(idempotencyKey),
       'amountMinorUnits': serializer.toJson<int>(amountMinorUnits),
@@ -13428,7 +13492,7 @@ class LoanPaymentRecord extends DataClass
     Value<String?> userId = const Value.absent(),
     String? loanId,
     Value<String?> installmentId = const Value.absent(),
-    String? accountId,
+    Value<String?> accountId = const Value.absent(),
     Value<String?> transactionId = const Value.absent(),
     Value<String?> idempotencyKey = const Value.absent(),
     int? amountMinorUnits,
@@ -13447,7 +13511,7 @@ class LoanPaymentRecord extends DataClass
     installmentId: installmentId.present
         ? installmentId.value
         : this.installmentId,
-    accountId: accountId ?? this.accountId,
+    accountId: accountId.present ? accountId.value : this.accountId,
     transactionId: transactionId.present
         ? transactionId.value
         : this.transactionId,
@@ -13568,7 +13632,7 @@ class LoanPaymentsCompanion extends UpdateCompanion<LoanPaymentRecord> {
   final Value<String?> userId;
   final Value<String> loanId;
   final Value<String?> installmentId;
-  final Value<String> accountId;
+  final Value<String?> accountId;
   final Value<String?> transactionId;
   final Value<String?> idempotencyKey;
   final Value<int> amountMinorUnits;
@@ -13605,7 +13669,7 @@ class LoanPaymentsCompanion extends UpdateCompanion<LoanPaymentRecord> {
     this.userId = const Value.absent(),
     required String loanId,
     this.installmentId = const Value.absent(),
-    required String accountId,
+    this.accountId = const Value.absent(),
     this.transactionId = const Value.absent(),
     this.idempotencyKey = const Value.absent(),
     required int amountMinorUnits,
@@ -13620,7 +13684,6 @@ class LoanPaymentsCompanion extends UpdateCompanion<LoanPaymentRecord> {
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        loanId = Value(loanId),
-       accountId = Value(accountId),
        amountMinorUnits = Value(amountMinorUnits),
        paidAt = Value(paidAt),
        createdAt = Value(createdAt),
@@ -13670,7 +13733,7 @@ class LoanPaymentsCompanion extends UpdateCompanion<LoanPaymentRecord> {
     Value<String?>? userId,
     Value<String>? loanId,
     Value<String?>? installmentId,
-    Value<String>? accountId,
+    Value<String?>? accountId,
     Value<String?>? transactionId,
     Value<String?>? idempotencyKey,
     Value<int>? amountMinorUnits,
@@ -16488,6 +16551,18 @@ class $PaydaySchedulesTable extends PaydaySchedules
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _frequencyMeta = const VerificationMeta(
+    'frequency',
+  );
+  @override
+  late final GeneratedColumn<String> frequency = GeneratedColumn<String>(
+    'frequency',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('one_time'),
+  );
   static const VerificationMeta _expectedIncomeMinorUnitsMeta =
       const VerificationMeta('expectedIncomeMinorUnits');
   @override
@@ -16510,6 +16585,73 @@ class $PaydaySchedulesTable extends PaydaySchedules
     type: DriftSqlType.int,
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _currencyCodeMeta = const VerificationMeta(
+    'currencyCode',
+  );
+  @override
+  late final GeneratedColumn<String> currencyCode = GeneratedColumn<String>(
+    'currency_code',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('PHP'),
+  );
+  static const VerificationMeta _receivingAccountIdMeta =
+      const VerificationMeta('receivingAccountId');
+  @override
+  late final GeneratedColumn<String> receivingAccountId =
+      GeneratedColumn<String>(
+        'receiving_account_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES financial_accounts (id)',
+        ),
+      );
+  static const VerificationMeta _incomeRecordIdMeta = const VerificationMeta(
+    'incomeRecordId',
+  );
+  @override
+  late final GeneratedColumn<String> incomeRecordId = GeneratedColumn<String>(
+    'income_record_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES income_records (id)',
+    ),
+  );
+  static const VerificationMeta _actualReceivedAtMeta = const VerificationMeta(
+    'actualReceivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> actualReceivedAt =
+      GeneratedColumn<DateTime>(
+        'actual_received_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _isActiveMeta = const VerificationMeta(
+    'isActive',
+  );
+  @override
+  late final GeneratedColumn<bool> isActive = GeneratedColumn<bool>(
+    'is_active',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_active" IN (0, 1))',
+    ),
+    defaultValue: const Constant(true),
   );
   static const VerificationMeta _statusMeta = const VerificationMeta('status');
   @override
@@ -16604,8 +16746,14 @@ class $PaydaySchedulesTable extends PaydaySchedules
     userId,
     name,
     paydayDate,
+    frequency,
     expectedIncomeMinorUnits,
     actualIncomeMinorUnits,
+    currencyCode,
+    receivingAccountId,
+    incomeRecordId,
+    actualReceivedAt,
+    isActive,
     status,
     notes,
     createdAt,
@@ -16654,6 +16802,12 @@ class $PaydaySchedulesTable extends PaydaySchedules
     } else if (isInserting) {
       context.missing(_paydayDateMeta);
     }
+    if (data.containsKey('frequency')) {
+      context.handle(
+        _frequencyMeta,
+        frequency.isAcceptableOrUnknown(data['frequency']!, _frequencyMeta),
+      );
+    }
     if (data.containsKey('expected_income_minor_units')) {
       context.handle(
         _expectedIncomeMinorUnitsMeta,
@@ -16670,6 +16824,48 @@ class $PaydaySchedulesTable extends PaydaySchedules
           data['actual_income_minor_units']!,
           _actualIncomeMinorUnitsMeta,
         ),
+      );
+    }
+    if (data.containsKey('currency_code')) {
+      context.handle(
+        _currencyCodeMeta,
+        currencyCode.isAcceptableOrUnknown(
+          data['currency_code']!,
+          _currencyCodeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('receiving_account_id')) {
+      context.handle(
+        _receivingAccountIdMeta,
+        receivingAccountId.isAcceptableOrUnknown(
+          data['receiving_account_id']!,
+          _receivingAccountIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('income_record_id')) {
+      context.handle(
+        _incomeRecordIdMeta,
+        incomeRecordId.isAcceptableOrUnknown(
+          data['income_record_id']!,
+          _incomeRecordIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('actual_received_at')) {
+      context.handle(
+        _actualReceivedAtMeta,
+        actualReceivedAt.isAcceptableOrUnknown(
+          data['actual_received_at']!,
+          _actualReceivedAtMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_active')) {
+      context.handle(
+        _isActiveMeta,
+        isActive.isAcceptableOrUnknown(data['is_active']!, _isActiveMeta),
       );
     }
     if (data.containsKey('status')) {
@@ -16755,6 +16951,10 @@ class $PaydaySchedulesTable extends PaydaySchedules
         DriftSqlType.dateTime,
         data['${effectivePrefix}payday_date'],
       )!,
+      frequency: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}frequency'],
+      )!,
       expectedIncomeMinorUnits: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}expected_income_minor_units'],
@@ -16762,6 +16962,26 @@ class $PaydaySchedulesTable extends PaydaySchedules
       actualIncomeMinorUnits: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}actual_income_minor_units'],
+      )!,
+      currencyCode: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}currency_code'],
+      )!,
+      receivingAccountId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}receiving_account_id'],
+      ),
+      incomeRecordId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}income_record_id'],
+      ),
+      actualReceivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}actual_received_at'],
+      ),
+      isActive: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_active'],
       )!,
       status: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -16810,8 +17030,14 @@ class PaydayScheduleRecord extends DataClass
   final String? userId;
   final String name;
   final DateTime paydayDate;
+  final String frequency;
   final int expectedIncomeMinorUnits;
   final int actualIncomeMinorUnits;
+  final String currencyCode;
+  final String? receivingAccountId;
+  final String? incomeRecordId;
+  final DateTime? actualReceivedAt;
+  final bool isActive;
   final String status;
   final String? notes;
   final DateTime createdAt;
@@ -16825,8 +17051,14 @@ class PaydayScheduleRecord extends DataClass
     this.userId,
     required this.name,
     required this.paydayDate,
+    required this.frequency,
     required this.expectedIncomeMinorUnits,
     required this.actualIncomeMinorUnits,
+    required this.currencyCode,
+    this.receivingAccountId,
+    this.incomeRecordId,
+    this.actualReceivedAt,
+    required this.isActive,
     required this.status,
     this.notes,
     required this.createdAt,
@@ -16845,10 +17077,22 @@ class PaydayScheduleRecord extends DataClass
     }
     map['name'] = Variable<String>(name);
     map['payday_date'] = Variable<DateTime>(paydayDate);
+    map['frequency'] = Variable<String>(frequency);
     map['expected_income_minor_units'] = Variable<int>(
       expectedIncomeMinorUnits,
     );
     map['actual_income_minor_units'] = Variable<int>(actualIncomeMinorUnits);
+    map['currency_code'] = Variable<String>(currencyCode);
+    if (!nullToAbsent || receivingAccountId != null) {
+      map['receiving_account_id'] = Variable<String>(receivingAccountId);
+    }
+    if (!nullToAbsent || incomeRecordId != null) {
+      map['income_record_id'] = Variable<String>(incomeRecordId);
+    }
+    if (!nullToAbsent || actualReceivedAt != null) {
+      map['actual_received_at'] = Variable<DateTime>(actualReceivedAt);
+    }
+    map['is_active'] = Variable<bool>(isActive);
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || notes != null) {
       map['notes'] = Variable<String>(notes);
@@ -16874,8 +17118,20 @@ class PaydayScheduleRecord extends DataClass
           : Value(userId),
       name: Value(name),
       paydayDate: Value(paydayDate),
+      frequency: Value(frequency),
       expectedIncomeMinorUnits: Value(expectedIncomeMinorUnits),
       actualIncomeMinorUnits: Value(actualIncomeMinorUnits),
+      currencyCode: Value(currencyCode),
+      receivingAccountId: receivingAccountId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receivingAccountId),
+      incomeRecordId: incomeRecordId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(incomeRecordId),
+      actualReceivedAt: actualReceivedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(actualReceivedAt),
+      isActive: Value(isActive),
       status: Value(status),
       notes: notes == null && nullToAbsent
           ? const Value.absent()
@@ -16903,12 +17159,22 @@ class PaydayScheduleRecord extends DataClass
       userId: serializer.fromJson<String?>(json['userId']),
       name: serializer.fromJson<String>(json['name']),
       paydayDate: serializer.fromJson<DateTime>(json['paydayDate']),
+      frequency: serializer.fromJson<String>(json['frequency']),
       expectedIncomeMinorUnits: serializer.fromJson<int>(
         json['expectedIncomeMinorUnits'],
       ),
       actualIncomeMinorUnits: serializer.fromJson<int>(
         json['actualIncomeMinorUnits'],
       ),
+      currencyCode: serializer.fromJson<String>(json['currencyCode']),
+      receivingAccountId: serializer.fromJson<String?>(
+        json['receivingAccountId'],
+      ),
+      incomeRecordId: serializer.fromJson<String?>(json['incomeRecordId']),
+      actualReceivedAt: serializer.fromJson<DateTime?>(
+        json['actualReceivedAt'],
+      ),
+      isActive: serializer.fromJson<bool>(json['isActive']),
       status: serializer.fromJson<String>(json['status']),
       notes: serializer.fromJson<String?>(json['notes']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
@@ -16927,10 +17193,16 @@ class PaydayScheduleRecord extends DataClass
       'userId': serializer.toJson<String?>(userId),
       'name': serializer.toJson<String>(name),
       'paydayDate': serializer.toJson<DateTime>(paydayDate),
+      'frequency': serializer.toJson<String>(frequency),
       'expectedIncomeMinorUnits': serializer.toJson<int>(
         expectedIncomeMinorUnits,
       ),
       'actualIncomeMinorUnits': serializer.toJson<int>(actualIncomeMinorUnits),
+      'currencyCode': serializer.toJson<String>(currencyCode),
+      'receivingAccountId': serializer.toJson<String?>(receivingAccountId),
+      'incomeRecordId': serializer.toJson<String?>(incomeRecordId),
+      'actualReceivedAt': serializer.toJson<DateTime?>(actualReceivedAt),
+      'isActive': serializer.toJson<bool>(isActive),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
       'createdAt': serializer.toJson<DateTime>(createdAt),
@@ -16947,8 +17219,14 @@ class PaydayScheduleRecord extends DataClass
     Value<String?> userId = const Value.absent(),
     String? name,
     DateTime? paydayDate,
+    String? frequency,
     int? expectedIncomeMinorUnits,
     int? actualIncomeMinorUnits,
+    String? currencyCode,
+    Value<String?> receivingAccountId = const Value.absent(),
+    Value<String?> incomeRecordId = const Value.absent(),
+    Value<DateTime?> actualReceivedAt = const Value.absent(),
+    bool? isActive,
     String? status,
     Value<String?> notes = const Value.absent(),
     DateTime? createdAt,
@@ -16962,10 +17240,22 @@ class PaydayScheduleRecord extends DataClass
     userId: userId.present ? userId.value : this.userId,
     name: name ?? this.name,
     paydayDate: paydayDate ?? this.paydayDate,
+    frequency: frequency ?? this.frequency,
     expectedIncomeMinorUnits:
         expectedIncomeMinorUnits ?? this.expectedIncomeMinorUnits,
     actualIncomeMinorUnits:
         actualIncomeMinorUnits ?? this.actualIncomeMinorUnits,
+    currencyCode: currencyCode ?? this.currencyCode,
+    receivingAccountId: receivingAccountId.present
+        ? receivingAccountId.value
+        : this.receivingAccountId,
+    incomeRecordId: incomeRecordId.present
+        ? incomeRecordId.value
+        : this.incomeRecordId,
+    actualReceivedAt: actualReceivedAt.present
+        ? actualReceivedAt.value
+        : this.actualReceivedAt,
+    isActive: isActive ?? this.isActive,
     status: status ?? this.status,
     notes: notes.present ? notes.value : this.notes,
     createdAt: createdAt ?? this.createdAt,
@@ -16985,12 +17275,26 @@ class PaydayScheduleRecord extends DataClass
       paydayDate: data.paydayDate.present
           ? data.paydayDate.value
           : this.paydayDate,
+      frequency: data.frequency.present ? data.frequency.value : this.frequency,
       expectedIncomeMinorUnits: data.expectedIncomeMinorUnits.present
           ? data.expectedIncomeMinorUnits.value
           : this.expectedIncomeMinorUnits,
       actualIncomeMinorUnits: data.actualIncomeMinorUnits.present
           ? data.actualIncomeMinorUnits.value
           : this.actualIncomeMinorUnits,
+      currencyCode: data.currencyCode.present
+          ? data.currencyCode.value
+          : this.currencyCode,
+      receivingAccountId: data.receivingAccountId.present
+          ? data.receivingAccountId.value
+          : this.receivingAccountId,
+      incomeRecordId: data.incomeRecordId.present
+          ? data.incomeRecordId.value
+          : this.incomeRecordId,
+      actualReceivedAt: data.actualReceivedAt.present
+          ? data.actualReceivedAt.value
+          : this.actualReceivedAt,
+      isActive: data.isActive.present ? data.isActive.value : this.isActive,
       status: data.status.present ? data.status.value : this.status,
       notes: data.notes.present ? data.notes.value : this.notes,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
@@ -17015,8 +17319,14 @@ class PaydayScheduleRecord extends DataClass
           ..write('userId: $userId, ')
           ..write('name: $name, ')
           ..write('paydayDate: $paydayDate, ')
+          ..write('frequency: $frequency, ')
           ..write('expectedIncomeMinorUnits: $expectedIncomeMinorUnits, ')
           ..write('actualIncomeMinorUnits: $actualIncomeMinorUnits, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('receivingAccountId: $receivingAccountId, ')
+          ..write('incomeRecordId: $incomeRecordId, ')
+          ..write('actualReceivedAt: $actualReceivedAt, ')
+          ..write('isActive: $isActive, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -17035,8 +17345,14 @@ class PaydayScheduleRecord extends DataClass
     userId,
     name,
     paydayDate,
+    frequency,
     expectedIncomeMinorUnits,
     actualIncomeMinorUnits,
+    currencyCode,
+    receivingAccountId,
+    incomeRecordId,
+    actualReceivedAt,
+    isActive,
     status,
     notes,
     createdAt,
@@ -17054,8 +17370,14 @@ class PaydayScheduleRecord extends DataClass
           other.userId == this.userId &&
           other.name == this.name &&
           other.paydayDate == this.paydayDate &&
+          other.frequency == this.frequency &&
           other.expectedIncomeMinorUnits == this.expectedIncomeMinorUnits &&
           other.actualIncomeMinorUnits == this.actualIncomeMinorUnits &&
+          other.currencyCode == this.currencyCode &&
+          other.receivingAccountId == this.receivingAccountId &&
+          other.incomeRecordId == this.incomeRecordId &&
+          other.actualReceivedAt == this.actualReceivedAt &&
+          other.isActive == this.isActive &&
           other.status == this.status &&
           other.notes == this.notes &&
           other.createdAt == this.createdAt &&
@@ -17071,8 +17393,14 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
   final Value<String?> userId;
   final Value<String> name;
   final Value<DateTime> paydayDate;
+  final Value<String> frequency;
   final Value<int> expectedIncomeMinorUnits;
   final Value<int> actualIncomeMinorUnits;
+  final Value<String> currencyCode;
+  final Value<String?> receivingAccountId;
+  final Value<String?> incomeRecordId;
+  final Value<DateTime?> actualReceivedAt;
+  final Value<bool> isActive;
   final Value<String> status;
   final Value<String?> notes;
   final Value<DateTime> createdAt;
@@ -17087,8 +17415,14 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
     this.userId = const Value.absent(),
     this.name = const Value.absent(),
     this.paydayDate = const Value.absent(),
+    this.frequency = const Value.absent(),
     this.expectedIncomeMinorUnits = const Value.absent(),
     this.actualIncomeMinorUnits = const Value.absent(),
+    this.currencyCode = const Value.absent(),
+    this.receivingAccountId = const Value.absent(),
+    this.incomeRecordId = const Value.absent(),
+    this.actualReceivedAt = const Value.absent(),
+    this.isActive = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     this.createdAt = const Value.absent(),
@@ -17104,8 +17438,14 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
     this.userId = const Value.absent(),
     required String name,
     required DateTime paydayDate,
+    this.frequency = const Value.absent(),
     this.expectedIncomeMinorUnits = const Value.absent(),
     this.actualIncomeMinorUnits = const Value.absent(),
+    this.currencyCode = const Value.absent(),
+    this.receivingAccountId = const Value.absent(),
+    this.incomeRecordId = const Value.absent(),
+    this.actualReceivedAt = const Value.absent(),
+    this.isActive = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
     required DateTime createdAt,
@@ -17125,8 +17465,14 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
     Expression<String>? userId,
     Expression<String>? name,
     Expression<DateTime>? paydayDate,
+    Expression<String>? frequency,
     Expression<int>? expectedIncomeMinorUnits,
     Expression<int>? actualIncomeMinorUnits,
+    Expression<String>? currencyCode,
+    Expression<String>? receivingAccountId,
+    Expression<String>? incomeRecordId,
+    Expression<DateTime>? actualReceivedAt,
+    Expression<bool>? isActive,
     Expression<String>? status,
     Expression<String>? notes,
     Expression<DateTime>? createdAt,
@@ -17142,10 +17488,17 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
       if (userId != null) 'user_id': userId,
       if (name != null) 'name': name,
       if (paydayDate != null) 'payday_date': paydayDate,
+      if (frequency != null) 'frequency': frequency,
       if (expectedIncomeMinorUnits != null)
         'expected_income_minor_units': expectedIncomeMinorUnits,
       if (actualIncomeMinorUnits != null)
         'actual_income_minor_units': actualIncomeMinorUnits,
+      if (currencyCode != null) 'currency_code': currencyCode,
+      if (receivingAccountId != null)
+        'receiving_account_id': receivingAccountId,
+      if (incomeRecordId != null) 'income_record_id': incomeRecordId,
+      if (actualReceivedAt != null) 'actual_received_at': actualReceivedAt,
+      if (isActive != null) 'is_active': isActive,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
       if (createdAt != null) 'created_at': createdAt,
@@ -17163,8 +17516,14 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
     Value<String?>? userId,
     Value<String>? name,
     Value<DateTime>? paydayDate,
+    Value<String>? frequency,
     Value<int>? expectedIncomeMinorUnits,
     Value<int>? actualIncomeMinorUnits,
+    Value<String>? currencyCode,
+    Value<String?>? receivingAccountId,
+    Value<String?>? incomeRecordId,
+    Value<DateTime?>? actualReceivedAt,
+    Value<bool>? isActive,
     Value<String>? status,
     Value<String?>? notes,
     Value<DateTime>? createdAt,
@@ -17180,10 +17539,16 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
       userId: userId ?? this.userId,
       name: name ?? this.name,
       paydayDate: paydayDate ?? this.paydayDate,
+      frequency: frequency ?? this.frequency,
       expectedIncomeMinorUnits:
           expectedIncomeMinorUnits ?? this.expectedIncomeMinorUnits,
       actualIncomeMinorUnits:
           actualIncomeMinorUnits ?? this.actualIncomeMinorUnits,
+      currencyCode: currencyCode ?? this.currencyCode,
+      receivingAccountId: receivingAccountId ?? this.receivingAccountId,
+      incomeRecordId: incomeRecordId ?? this.incomeRecordId,
+      actualReceivedAt: actualReceivedAt ?? this.actualReceivedAt,
+      isActive: isActive ?? this.isActive,
       status: status ?? this.status,
       notes: notes ?? this.notes,
       createdAt: createdAt ?? this.createdAt,
@@ -17211,6 +17576,9 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
     if (paydayDate.present) {
       map['payday_date'] = Variable<DateTime>(paydayDate.value);
     }
+    if (frequency.present) {
+      map['frequency'] = Variable<String>(frequency.value);
+    }
     if (expectedIncomeMinorUnits.present) {
       map['expected_income_minor_units'] = Variable<int>(
         expectedIncomeMinorUnits.value,
@@ -17220,6 +17588,21 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
       map['actual_income_minor_units'] = Variable<int>(
         actualIncomeMinorUnits.value,
       );
+    }
+    if (currencyCode.present) {
+      map['currency_code'] = Variable<String>(currencyCode.value);
+    }
+    if (receivingAccountId.present) {
+      map['receiving_account_id'] = Variable<String>(receivingAccountId.value);
+    }
+    if (incomeRecordId.present) {
+      map['income_record_id'] = Variable<String>(incomeRecordId.value);
+    }
+    if (actualReceivedAt.present) {
+      map['actual_received_at'] = Variable<DateTime>(actualReceivedAt.value);
+    }
+    if (isActive.present) {
+      map['is_active'] = Variable<bool>(isActive.value);
     }
     if (status.present) {
       map['status'] = Variable<String>(status.value);
@@ -17258,8 +17641,14 @@ class PaydaySchedulesCompanion extends UpdateCompanion<PaydayScheduleRecord> {
           ..write('userId: $userId, ')
           ..write('name: $name, ')
           ..write('paydayDate: $paydayDate, ')
+          ..write('frequency: $frequency, ')
           ..write('expectedIncomeMinorUnits: $expectedIncomeMinorUnits, ')
           ..write('actualIncomeMinorUnits: $actualIncomeMinorUnits, ')
+          ..write('currencyCode: $currencyCode, ')
+          ..write('receivingAccountId: $receivingAccountId, ')
+          ..write('incomeRecordId: $incomeRecordId, ')
+          ..write('actualReceivedAt: $actualReceivedAt, ')
+          ..write('isActive: $isActive, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
           ..write('createdAt: $createdAt, ')
@@ -17311,6 +17700,17 @@ class $FinancialAllocationsTable extends FinancialAllocations
     defaultConstraints: GeneratedColumn.constraintIsAlways(
       'REFERENCES payday_schedules (id)',
     ),
+  );
+  static const VerificationMeta _periodDateMeta = const VerificationMeta(
+    'periodDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> periodDate = GeneratedColumn<DateTime>(
+    'period_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
   );
   static const VerificationMeta _expectedIncomeMinorUnitsMeta =
       const VerificationMeta('expectedIncomeMinorUnits');
@@ -17375,6 +17775,18 @@ class $FinancialAllocationsTable extends FinancialAllocations
       'REFERENCES bills (id)',
     ),
   );
+  static const VerificationMeta _relatedDueDateMeta = const VerificationMeta(
+    'relatedDueDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> relatedDueDate =
+      GeneratedColumn<DateTime>(
+        'related_due_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _relatedInstallmentIdMeta =
       const VerificationMeta('relatedInstallmentId');
   @override
@@ -17388,6 +17800,44 @@ class $FinancialAllocationsTable extends FinancialAllocations
         defaultConstraints: GeneratedColumn.constraintIsAlways(
           'REFERENCES loan_installments (id)',
         ),
+      );
+  static const VerificationMeta _relatedSavingsGoalIdMeta =
+      const VerificationMeta('relatedSavingsGoalId');
+  @override
+  late final GeneratedColumn<String> relatedSavingsGoalId =
+      GeneratedColumn<String>(
+        'related_savings_goal_id',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+        defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'REFERENCES savings_goals (id)',
+        ),
+      );
+  static const VerificationMeta _priorityMeta = const VerificationMeta(
+    'priority',
+  );
+  @override
+  late final GeneratedColumn<int> priority = GeneratedColumn<int>(
+    'priority',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(3),
+  );
+  static const VerificationMeta _fulfilledAmountMinorUnitsMeta =
+      const VerificationMeta('fulfilledAmountMinorUnits');
+  @override
+  late final GeneratedColumn<int> fulfilledAmountMinorUnits =
+      GeneratedColumn<int>(
+        'fulfilled_amount_minor_units',
+        aliasedName,
+        false,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+        defaultValue: const Constant(0),
       );
   static const VerificationMeta _allocationKeyMeta = const VerificationMeta(
     'allocationKey',
@@ -17482,12 +17932,17 @@ class $FinancialAllocationsTable extends FinancialAllocations
     id,
     userId,
     paydayScheduleId,
+    periodDate,
     expectedIncomeMinorUnits,
     actualIncomeMinorUnits,
     allocatedAmountMinorUnits,
     allocationCategory,
     relatedBillId,
+    relatedDueDate,
     relatedInstallmentId,
+    relatedSavingsGoalId,
+    priority,
+    fulfilledAmountMinorUnits,
     allocationKey,
     status,
     notes,
@@ -17530,6 +17985,12 @@ class $FinancialAllocationsTable extends FinancialAllocations
       );
     } else if (isInserting) {
       context.missing(_paydayScheduleIdMeta);
+    }
+    if (data.containsKey('period_date')) {
+      context.handle(
+        _periodDateMeta,
+        periodDate.isAcceptableOrUnknown(data['period_date']!, _periodDateMeta),
+      );
     }
     if (data.containsKey('expected_income_minor_units')) {
       context.handle(
@@ -17580,12 +18041,45 @@ class $FinancialAllocationsTable extends FinancialAllocations
         ),
       );
     }
+    if (data.containsKey('related_due_date')) {
+      context.handle(
+        _relatedDueDateMeta,
+        relatedDueDate.isAcceptableOrUnknown(
+          data['related_due_date']!,
+          _relatedDueDateMeta,
+        ),
+      );
+    }
     if (data.containsKey('related_installment_id')) {
       context.handle(
         _relatedInstallmentIdMeta,
         relatedInstallmentId.isAcceptableOrUnknown(
           data['related_installment_id']!,
           _relatedInstallmentIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('related_savings_goal_id')) {
+      context.handle(
+        _relatedSavingsGoalIdMeta,
+        relatedSavingsGoalId.isAcceptableOrUnknown(
+          data['related_savings_goal_id']!,
+          _relatedSavingsGoalIdMeta,
+        ),
+      );
+    }
+    if (data.containsKey('priority')) {
+      context.handle(
+        _priorityMeta,
+        priority.isAcceptableOrUnknown(data['priority']!, _priorityMeta),
+      );
+    }
+    if (data.containsKey('fulfilled_amount_minor_units')) {
+      context.handle(
+        _fulfilledAmountMinorUnitsMeta,
+        fulfilledAmountMinorUnits.isAcceptableOrUnknown(
+          data['fulfilled_amount_minor_units']!,
+          _fulfilledAmountMinorUnitsMeta,
         ),
       );
     }
@@ -17676,6 +18170,10 @@ class $FinancialAllocationsTable extends FinancialAllocations
         DriftSqlType.string,
         data['${effectivePrefix}payday_schedule_id'],
       )!,
+      periodDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}period_date'],
+      ),
       expectedIncomeMinorUnits: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}expected_income_minor_units'],
@@ -17696,10 +18194,26 @@ class $FinancialAllocationsTable extends FinancialAllocations
         DriftSqlType.string,
         data['${effectivePrefix}related_bill_id'],
       ),
+      relatedDueDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}related_due_date'],
+      ),
       relatedInstallmentId: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}related_installment_id'],
       ),
+      relatedSavingsGoalId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}related_savings_goal_id'],
+      ),
+      priority: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}priority'],
+      )!,
+      fulfilledAmountMinorUnits: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}fulfilled_amount_minor_units'],
+      )!,
       allocationKey: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}allocation_key'],
@@ -17746,12 +18260,17 @@ class FinancialAllocationRecord extends DataClass
   final String id;
   final String? userId;
   final String paydayScheduleId;
+  final DateTime? periodDate;
   final int expectedIncomeMinorUnits;
   final int actualIncomeMinorUnits;
   final int allocatedAmountMinorUnits;
   final String allocationCategory;
   final String? relatedBillId;
+  final DateTime? relatedDueDate;
   final String? relatedInstallmentId;
+  final String? relatedSavingsGoalId;
+  final int priority;
+  final int fulfilledAmountMinorUnits;
   final String allocationKey;
   final String status;
   final String? notes;
@@ -17764,12 +18283,17 @@ class FinancialAllocationRecord extends DataClass
     required this.id,
     this.userId,
     required this.paydayScheduleId,
+    this.periodDate,
     required this.expectedIncomeMinorUnits,
     required this.actualIncomeMinorUnits,
     required this.allocatedAmountMinorUnits,
     required this.allocationCategory,
     this.relatedBillId,
+    this.relatedDueDate,
     this.relatedInstallmentId,
+    this.relatedSavingsGoalId,
+    required this.priority,
+    required this.fulfilledAmountMinorUnits,
     required this.allocationKey,
     required this.status,
     this.notes,
@@ -17787,6 +18311,9 @@ class FinancialAllocationRecord extends DataClass
       map['user_id'] = Variable<String>(userId);
     }
     map['payday_schedule_id'] = Variable<String>(paydayScheduleId);
+    if (!nullToAbsent || periodDate != null) {
+      map['period_date'] = Variable<DateTime>(periodDate);
+    }
     map['expected_income_minor_units'] = Variable<int>(
       expectedIncomeMinorUnits,
     );
@@ -17798,9 +18325,19 @@ class FinancialAllocationRecord extends DataClass
     if (!nullToAbsent || relatedBillId != null) {
       map['related_bill_id'] = Variable<String>(relatedBillId);
     }
+    if (!nullToAbsent || relatedDueDate != null) {
+      map['related_due_date'] = Variable<DateTime>(relatedDueDate);
+    }
     if (!nullToAbsent || relatedInstallmentId != null) {
       map['related_installment_id'] = Variable<String>(relatedInstallmentId);
     }
+    if (!nullToAbsent || relatedSavingsGoalId != null) {
+      map['related_savings_goal_id'] = Variable<String>(relatedSavingsGoalId);
+    }
+    map['priority'] = Variable<int>(priority);
+    map['fulfilled_amount_minor_units'] = Variable<int>(
+      fulfilledAmountMinorUnits,
+    );
     map['allocation_key'] = Variable<String>(allocationKey);
     map['status'] = Variable<String>(status);
     if (!nullToAbsent || notes != null) {
@@ -17823,6 +18360,9 @@ class FinancialAllocationRecord extends DataClass
           ? const Value.absent()
           : Value(userId),
       paydayScheduleId: Value(paydayScheduleId),
+      periodDate: periodDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(periodDate),
       expectedIncomeMinorUnits: Value(expectedIncomeMinorUnits),
       actualIncomeMinorUnits: Value(actualIncomeMinorUnits),
       allocatedAmountMinorUnits: Value(allocatedAmountMinorUnits),
@@ -17830,9 +18370,17 @@ class FinancialAllocationRecord extends DataClass
       relatedBillId: relatedBillId == null && nullToAbsent
           ? const Value.absent()
           : Value(relatedBillId),
+      relatedDueDate: relatedDueDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relatedDueDate),
       relatedInstallmentId: relatedInstallmentId == null && nullToAbsent
           ? const Value.absent()
           : Value(relatedInstallmentId),
+      relatedSavingsGoalId: relatedSavingsGoalId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(relatedSavingsGoalId),
+      priority: Value(priority),
+      fulfilledAmountMinorUnits: Value(fulfilledAmountMinorUnits),
       allocationKey: Value(allocationKey),
       status: Value(status),
       notes: notes == null && nullToAbsent
@@ -17857,6 +18405,7 @@ class FinancialAllocationRecord extends DataClass
       id: serializer.fromJson<String>(json['id']),
       userId: serializer.fromJson<String?>(json['userId']),
       paydayScheduleId: serializer.fromJson<String>(json['paydayScheduleId']),
+      periodDate: serializer.fromJson<DateTime?>(json['periodDate']),
       expectedIncomeMinorUnits: serializer.fromJson<int>(
         json['expectedIncomeMinorUnits'],
       ),
@@ -17870,8 +18419,16 @@ class FinancialAllocationRecord extends DataClass
         json['allocationCategory'],
       ),
       relatedBillId: serializer.fromJson<String?>(json['relatedBillId']),
+      relatedDueDate: serializer.fromJson<DateTime?>(json['relatedDueDate']),
       relatedInstallmentId: serializer.fromJson<String?>(
         json['relatedInstallmentId'],
+      ),
+      relatedSavingsGoalId: serializer.fromJson<String?>(
+        json['relatedSavingsGoalId'],
+      ),
+      priority: serializer.fromJson<int>(json['priority']),
+      fulfilledAmountMinorUnits: serializer.fromJson<int>(
+        json['fulfilledAmountMinorUnits'],
       ),
       allocationKey: serializer.fromJson<String>(json['allocationKey']),
       status: serializer.fromJson<String>(json['status']),
@@ -17890,6 +18447,7 @@ class FinancialAllocationRecord extends DataClass
       'id': serializer.toJson<String>(id),
       'userId': serializer.toJson<String?>(userId),
       'paydayScheduleId': serializer.toJson<String>(paydayScheduleId),
+      'periodDate': serializer.toJson<DateTime?>(periodDate),
       'expectedIncomeMinorUnits': serializer.toJson<int>(
         expectedIncomeMinorUnits,
       ),
@@ -17899,7 +18457,13 @@ class FinancialAllocationRecord extends DataClass
       ),
       'allocationCategory': serializer.toJson<String>(allocationCategory),
       'relatedBillId': serializer.toJson<String?>(relatedBillId),
+      'relatedDueDate': serializer.toJson<DateTime?>(relatedDueDate),
       'relatedInstallmentId': serializer.toJson<String?>(relatedInstallmentId),
+      'relatedSavingsGoalId': serializer.toJson<String?>(relatedSavingsGoalId),
+      'priority': serializer.toJson<int>(priority),
+      'fulfilledAmountMinorUnits': serializer.toJson<int>(
+        fulfilledAmountMinorUnits,
+      ),
       'allocationKey': serializer.toJson<String>(allocationKey),
       'status': serializer.toJson<String>(status),
       'notes': serializer.toJson<String?>(notes),
@@ -17915,12 +18479,17 @@ class FinancialAllocationRecord extends DataClass
     String? id,
     Value<String?> userId = const Value.absent(),
     String? paydayScheduleId,
+    Value<DateTime?> periodDate = const Value.absent(),
     int? expectedIncomeMinorUnits,
     int? actualIncomeMinorUnits,
     int? allocatedAmountMinorUnits,
     String? allocationCategory,
     Value<String?> relatedBillId = const Value.absent(),
+    Value<DateTime?> relatedDueDate = const Value.absent(),
     Value<String?> relatedInstallmentId = const Value.absent(),
+    Value<String?> relatedSavingsGoalId = const Value.absent(),
+    int? priority,
+    int? fulfilledAmountMinorUnits,
     String? allocationKey,
     String? status,
     Value<String?> notes = const Value.absent(),
@@ -17933,6 +18502,7 @@ class FinancialAllocationRecord extends DataClass
     id: id ?? this.id,
     userId: userId.present ? userId.value : this.userId,
     paydayScheduleId: paydayScheduleId ?? this.paydayScheduleId,
+    periodDate: periodDate.present ? periodDate.value : this.periodDate,
     expectedIncomeMinorUnits:
         expectedIncomeMinorUnits ?? this.expectedIncomeMinorUnits,
     actualIncomeMinorUnits:
@@ -17943,9 +18513,18 @@ class FinancialAllocationRecord extends DataClass
     relatedBillId: relatedBillId.present
         ? relatedBillId.value
         : this.relatedBillId,
+    relatedDueDate: relatedDueDate.present
+        ? relatedDueDate.value
+        : this.relatedDueDate,
     relatedInstallmentId: relatedInstallmentId.present
         ? relatedInstallmentId.value
         : this.relatedInstallmentId,
+    relatedSavingsGoalId: relatedSavingsGoalId.present
+        ? relatedSavingsGoalId.value
+        : this.relatedSavingsGoalId,
+    priority: priority ?? this.priority,
+    fulfilledAmountMinorUnits:
+        fulfilledAmountMinorUnits ?? this.fulfilledAmountMinorUnits,
     allocationKey: allocationKey ?? this.allocationKey,
     status: status ?? this.status,
     notes: notes.present ? notes.value : this.notes,
@@ -17966,6 +18545,9 @@ class FinancialAllocationRecord extends DataClass
       paydayScheduleId: data.paydayScheduleId.present
           ? data.paydayScheduleId.value
           : this.paydayScheduleId,
+      periodDate: data.periodDate.present
+          ? data.periodDate.value
+          : this.periodDate,
       expectedIncomeMinorUnits: data.expectedIncomeMinorUnits.present
           ? data.expectedIncomeMinorUnits.value
           : this.expectedIncomeMinorUnits,
@@ -17981,9 +18563,19 @@ class FinancialAllocationRecord extends DataClass
       relatedBillId: data.relatedBillId.present
           ? data.relatedBillId.value
           : this.relatedBillId,
+      relatedDueDate: data.relatedDueDate.present
+          ? data.relatedDueDate.value
+          : this.relatedDueDate,
       relatedInstallmentId: data.relatedInstallmentId.present
           ? data.relatedInstallmentId.value
           : this.relatedInstallmentId,
+      relatedSavingsGoalId: data.relatedSavingsGoalId.present
+          ? data.relatedSavingsGoalId.value
+          : this.relatedSavingsGoalId,
+      priority: data.priority.present ? data.priority.value : this.priority,
+      fulfilledAmountMinorUnits: data.fulfilledAmountMinorUnits.present
+          ? data.fulfilledAmountMinorUnits.value
+          : this.fulfilledAmountMinorUnits,
       allocationKey: data.allocationKey.present
           ? data.allocationKey.value
           : this.allocationKey,
@@ -18007,12 +18599,17 @@ class FinancialAllocationRecord extends DataClass
           ..write('id: $id, ')
           ..write('userId: $userId, ')
           ..write('paydayScheduleId: $paydayScheduleId, ')
+          ..write('periodDate: $periodDate, ')
           ..write('expectedIncomeMinorUnits: $expectedIncomeMinorUnits, ')
           ..write('actualIncomeMinorUnits: $actualIncomeMinorUnits, ')
           ..write('allocatedAmountMinorUnits: $allocatedAmountMinorUnits, ')
           ..write('allocationCategory: $allocationCategory, ')
           ..write('relatedBillId: $relatedBillId, ')
+          ..write('relatedDueDate: $relatedDueDate, ')
           ..write('relatedInstallmentId: $relatedInstallmentId, ')
+          ..write('relatedSavingsGoalId: $relatedSavingsGoalId, ')
+          ..write('priority: $priority, ')
+          ..write('fulfilledAmountMinorUnits: $fulfilledAmountMinorUnits, ')
           ..write('allocationKey: $allocationKey, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
@@ -18026,16 +18623,21 @@ class FinancialAllocationRecord extends DataClass
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     id,
     userId,
     paydayScheduleId,
+    periodDate,
     expectedIncomeMinorUnits,
     actualIncomeMinorUnits,
     allocatedAmountMinorUnits,
     allocationCategory,
     relatedBillId,
+    relatedDueDate,
     relatedInstallmentId,
+    relatedSavingsGoalId,
+    priority,
+    fulfilledAmountMinorUnits,
     allocationKey,
     status,
     notes,
@@ -18044,7 +18646,7 @@ class FinancialAllocationRecord extends DataClass
     localVersion,
     serverVersion,
     syncState,
-  );
+  ]);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -18052,12 +18654,17 @@ class FinancialAllocationRecord extends DataClass
           other.id == this.id &&
           other.userId == this.userId &&
           other.paydayScheduleId == this.paydayScheduleId &&
+          other.periodDate == this.periodDate &&
           other.expectedIncomeMinorUnits == this.expectedIncomeMinorUnits &&
           other.actualIncomeMinorUnits == this.actualIncomeMinorUnits &&
           other.allocatedAmountMinorUnits == this.allocatedAmountMinorUnits &&
           other.allocationCategory == this.allocationCategory &&
           other.relatedBillId == this.relatedBillId &&
+          other.relatedDueDate == this.relatedDueDate &&
           other.relatedInstallmentId == this.relatedInstallmentId &&
+          other.relatedSavingsGoalId == this.relatedSavingsGoalId &&
+          other.priority == this.priority &&
+          other.fulfilledAmountMinorUnits == this.fulfilledAmountMinorUnits &&
           other.allocationKey == this.allocationKey &&
           other.status == this.status &&
           other.notes == this.notes &&
@@ -18073,12 +18680,17 @@ class FinancialAllocationsCompanion
   final Value<String> id;
   final Value<String?> userId;
   final Value<String> paydayScheduleId;
+  final Value<DateTime?> periodDate;
   final Value<int> expectedIncomeMinorUnits;
   final Value<int> actualIncomeMinorUnits;
   final Value<int> allocatedAmountMinorUnits;
   final Value<String> allocationCategory;
   final Value<String?> relatedBillId;
+  final Value<DateTime?> relatedDueDate;
   final Value<String?> relatedInstallmentId;
+  final Value<String?> relatedSavingsGoalId;
+  final Value<int> priority;
+  final Value<int> fulfilledAmountMinorUnits;
   final Value<String> allocationKey;
   final Value<String> status;
   final Value<String?> notes;
@@ -18092,12 +18704,17 @@ class FinancialAllocationsCompanion
     this.id = const Value.absent(),
     this.userId = const Value.absent(),
     this.paydayScheduleId = const Value.absent(),
+    this.periodDate = const Value.absent(),
     this.expectedIncomeMinorUnits = const Value.absent(),
     this.actualIncomeMinorUnits = const Value.absent(),
     this.allocatedAmountMinorUnits = const Value.absent(),
     this.allocationCategory = const Value.absent(),
     this.relatedBillId = const Value.absent(),
+    this.relatedDueDate = const Value.absent(),
     this.relatedInstallmentId = const Value.absent(),
+    this.relatedSavingsGoalId = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.fulfilledAmountMinorUnits = const Value.absent(),
     this.allocationKey = const Value.absent(),
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
@@ -18112,12 +18729,17 @@ class FinancialAllocationsCompanion
     required String id,
     this.userId = const Value.absent(),
     required String paydayScheduleId,
+    this.periodDate = const Value.absent(),
     this.expectedIncomeMinorUnits = const Value.absent(),
     this.actualIncomeMinorUnits = const Value.absent(),
     required int allocatedAmountMinorUnits,
     required String allocationCategory,
     this.relatedBillId = const Value.absent(),
+    this.relatedDueDate = const Value.absent(),
     this.relatedInstallmentId = const Value.absent(),
+    this.relatedSavingsGoalId = const Value.absent(),
+    this.priority = const Value.absent(),
+    this.fulfilledAmountMinorUnits = const Value.absent(),
     required String allocationKey,
     this.status = const Value.absent(),
     this.notes = const Value.absent(),
@@ -18138,12 +18760,17 @@ class FinancialAllocationsCompanion
     Expression<String>? id,
     Expression<String>? userId,
     Expression<String>? paydayScheduleId,
+    Expression<DateTime>? periodDate,
     Expression<int>? expectedIncomeMinorUnits,
     Expression<int>? actualIncomeMinorUnits,
     Expression<int>? allocatedAmountMinorUnits,
     Expression<String>? allocationCategory,
     Expression<String>? relatedBillId,
+    Expression<DateTime>? relatedDueDate,
     Expression<String>? relatedInstallmentId,
+    Expression<String>? relatedSavingsGoalId,
+    Expression<int>? priority,
+    Expression<int>? fulfilledAmountMinorUnits,
     Expression<String>? allocationKey,
     Expression<String>? status,
     Expression<String>? notes,
@@ -18158,6 +18785,7 @@ class FinancialAllocationsCompanion
       if (id != null) 'id': id,
       if (userId != null) 'user_id': userId,
       if (paydayScheduleId != null) 'payday_schedule_id': paydayScheduleId,
+      if (periodDate != null) 'period_date': periodDate,
       if (expectedIncomeMinorUnits != null)
         'expected_income_minor_units': expectedIncomeMinorUnits,
       if (actualIncomeMinorUnits != null)
@@ -18166,8 +18794,14 @@ class FinancialAllocationsCompanion
         'allocated_amount_minor_units': allocatedAmountMinorUnits,
       if (allocationCategory != null) 'allocation_category': allocationCategory,
       if (relatedBillId != null) 'related_bill_id': relatedBillId,
+      if (relatedDueDate != null) 'related_due_date': relatedDueDate,
       if (relatedInstallmentId != null)
         'related_installment_id': relatedInstallmentId,
+      if (relatedSavingsGoalId != null)
+        'related_savings_goal_id': relatedSavingsGoalId,
+      if (priority != null) 'priority': priority,
+      if (fulfilledAmountMinorUnits != null)
+        'fulfilled_amount_minor_units': fulfilledAmountMinorUnits,
       if (allocationKey != null) 'allocation_key': allocationKey,
       if (status != null) 'status': status,
       if (notes != null) 'notes': notes,
@@ -18184,12 +18818,17 @@ class FinancialAllocationsCompanion
     Value<String>? id,
     Value<String?>? userId,
     Value<String>? paydayScheduleId,
+    Value<DateTime?>? periodDate,
     Value<int>? expectedIncomeMinorUnits,
     Value<int>? actualIncomeMinorUnits,
     Value<int>? allocatedAmountMinorUnits,
     Value<String>? allocationCategory,
     Value<String?>? relatedBillId,
+    Value<DateTime?>? relatedDueDate,
     Value<String?>? relatedInstallmentId,
+    Value<String?>? relatedSavingsGoalId,
+    Value<int>? priority,
+    Value<int>? fulfilledAmountMinorUnits,
     Value<String>? allocationKey,
     Value<String>? status,
     Value<String?>? notes,
@@ -18204,6 +18843,7 @@ class FinancialAllocationsCompanion
       id: id ?? this.id,
       userId: userId ?? this.userId,
       paydayScheduleId: paydayScheduleId ?? this.paydayScheduleId,
+      periodDate: periodDate ?? this.periodDate,
       expectedIncomeMinorUnits:
           expectedIncomeMinorUnits ?? this.expectedIncomeMinorUnits,
       actualIncomeMinorUnits:
@@ -18212,7 +18852,12 @@ class FinancialAllocationsCompanion
           allocatedAmountMinorUnits ?? this.allocatedAmountMinorUnits,
       allocationCategory: allocationCategory ?? this.allocationCategory,
       relatedBillId: relatedBillId ?? this.relatedBillId,
+      relatedDueDate: relatedDueDate ?? this.relatedDueDate,
       relatedInstallmentId: relatedInstallmentId ?? this.relatedInstallmentId,
+      relatedSavingsGoalId: relatedSavingsGoalId ?? this.relatedSavingsGoalId,
+      priority: priority ?? this.priority,
+      fulfilledAmountMinorUnits:
+          fulfilledAmountMinorUnits ?? this.fulfilledAmountMinorUnits,
       allocationKey: allocationKey ?? this.allocationKey,
       status: status ?? this.status,
       notes: notes ?? this.notes,
@@ -18237,6 +18882,9 @@ class FinancialAllocationsCompanion
     if (paydayScheduleId.present) {
       map['payday_schedule_id'] = Variable<String>(paydayScheduleId.value);
     }
+    if (periodDate.present) {
+      map['period_date'] = Variable<DateTime>(periodDate.value);
+    }
     if (expectedIncomeMinorUnits.present) {
       map['expected_income_minor_units'] = Variable<int>(
         expectedIncomeMinorUnits.value,
@@ -18258,9 +18906,25 @@ class FinancialAllocationsCompanion
     if (relatedBillId.present) {
       map['related_bill_id'] = Variable<String>(relatedBillId.value);
     }
+    if (relatedDueDate.present) {
+      map['related_due_date'] = Variable<DateTime>(relatedDueDate.value);
+    }
     if (relatedInstallmentId.present) {
       map['related_installment_id'] = Variable<String>(
         relatedInstallmentId.value,
+      );
+    }
+    if (relatedSavingsGoalId.present) {
+      map['related_savings_goal_id'] = Variable<String>(
+        relatedSavingsGoalId.value,
+      );
+    }
+    if (priority.present) {
+      map['priority'] = Variable<int>(priority.value);
+    }
+    if (fulfilledAmountMinorUnits.present) {
+      map['fulfilled_amount_minor_units'] = Variable<int>(
+        fulfilledAmountMinorUnits.value,
       );
     }
     if (allocationKey.present) {
@@ -18299,12 +18963,17 @@ class FinancialAllocationsCompanion
           ..write('id: $id, ')
           ..write('userId: $userId, ')
           ..write('paydayScheduleId: $paydayScheduleId, ')
+          ..write('periodDate: $periodDate, ')
           ..write('expectedIncomeMinorUnits: $expectedIncomeMinorUnits, ')
           ..write('actualIncomeMinorUnits: $actualIncomeMinorUnits, ')
           ..write('allocatedAmountMinorUnits: $allocatedAmountMinorUnits, ')
           ..write('allocationCategory: $allocationCategory, ')
           ..write('relatedBillId: $relatedBillId, ')
+          ..write('relatedDueDate: $relatedDueDate, ')
           ..write('relatedInstallmentId: $relatedInstallmentId, ')
+          ..write('relatedSavingsGoalId: $relatedSavingsGoalId, ')
+          ..write('priority: $priority, ')
+          ..write('fulfilledAmountMinorUnits: $fulfilledAmountMinorUnits, ')
           ..write('allocationKey: $allocationKey, ')
           ..write('status: $status, ')
           ..write('notes: $notes, ')
@@ -20470,6 +21139,26 @@ final class $$FinancialAccountsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<$PaydaySchedulesTable, List<PaydayScheduleRecord>>
+  _paydaySchedulesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.paydaySchedules,
+    aliasName: 'financial_accounts__id__payday_schedules__receiving_account_id',
+  );
+
+  $$PaydaySchedulesTableProcessedTableManager get paydaySchedulesRefs {
+    final manager =
+        $$PaydaySchedulesTableTableManager($_db, $_db.paydaySchedules).filter(
+          (f) => f.receivingAccountId.id.sqlEquals($_itemColumn<String>('id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _paydaySchedulesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$FinancialAccountsTableFilterComposer
@@ -20943,6 +21632,31 @@ class $$FinancialAccountsTableFilterComposer
           }) => $$AccountTransfersTableFilterComposer(
             $db: $db,
             $table: $db.accountTransfers,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> paydaySchedulesRefs(
+    Expression<bool> Function($$PaydaySchedulesTableFilterComposer f) f,
+  ) {
+    final $$PaydaySchedulesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paydaySchedules,
+      getReferencedColumn: (t) => t.receivingAccountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaydaySchedulesTableFilterComposer(
+            $db: $db,
+            $table: $db.paydaySchedules,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -21567,6 +22281,31 @@ class $$FinancialAccountsTableAnnotationComposer
     );
     return f(composer);
   }
+
+  Expression<T> paydaySchedulesRefs<T extends Object>(
+    Expression<T> Function($$PaydaySchedulesTableAnnotationComposer a) f,
+  ) {
+    final $$PaydaySchedulesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paydaySchedules,
+      getReferencedColumn: (t) => t.receivingAccountId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaydaySchedulesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.paydaySchedules,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$FinancialAccountsTableTableManager
@@ -21596,6 +22335,7 @@ class $$FinancialAccountsTableTableManager
             bool savingsContributionsRefs,
             bool outgoingTransfers,
             bool incomingTransfers,
+            bool paydaySchedulesRefs,
           })
         > {
   $$FinancialAccountsTableTableManager(
@@ -21769,6 +22509,7 @@ class $$FinancialAccountsTableTableManager
                 savingsContributionsRefs = false,
                 outgoingTransfers = false,
                 incomingTransfers = false,
+                paydaySchedulesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -21786,6 +22527,7 @@ class $$FinancialAccountsTableTableManager
                     if (savingsContributionsRefs) db.savingsContributions,
                     if (outgoingTransfers) db.accountTransfers,
                     if (incomingTransfers) db.accountTransfers,
+                    if (paydaySchedulesRefs) db.paydaySchedules,
                   ],
                   addJoins: null,
                   getPrefetchedDataCallback: (items) async {
@@ -22063,6 +22805,27 @@ class $$FinancialAccountsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (paydaySchedulesRefs)
+                        await $_getPrefetchedData<
+                          FinancialAccountRecord,
+                          $FinancialAccountsTable,
+                          PaydayScheduleRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$FinancialAccountsTableReferences
+                              ._paydaySchedulesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$FinancialAccountsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).paydaySchedulesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.receivingAccountId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                     ];
                   },
                 );
@@ -22097,6 +22860,7 @@ typedef $$FinancialAccountsTableProcessedTableManager =
         bool savingsContributionsRefs,
         bool outgoingTransfers,
         bool incomingTransfers,
+        bool paydaySchedulesRefs,
       })
     >;
 typedef $$BillsTableCreateCompanionBuilder =
@@ -23501,6 +24265,7 @@ typedef $$LoansTableCreateCompanionBuilder =
       Value<int> remainingBalanceMinorUnits,
       Value<int> interestRateBasisPoints,
       Value<int> totalInterestMinorUnits,
+      Value<int> totalRepaymentMinorUnits,
       Value<String> currencyCode,
       required DateTime openedAt,
       Value<DateTime?> endDate,
@@ -23532,6 +24297,7 @@ typedef $$LoansTableUpdateCompanionBuilder =
       Value<int> remainingBalanceMinorUnits,
       Value<int> interestRateBasisPoints,
       Value<int> totalInterestMinorUnits,
+      Value<int> totalRepaymentMinorUnits,
       Value<String> currencyCode,
       Value<DateTime> openedAt,
       Value<DateTime?> endDate,
@@ -23697,6 +24463,11 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
 
   ColumnFilters<int> get totalInterestMinorUnits => $composableBuilder(
     column: $table.totalInterestMinorUnits,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get totalRepaymentMinorUnits => $composableBuilder(
+    column: $table.totalRepaymentMinorUnits,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -23956,6 +24727,11 @@ class $$LoansTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get totalRepaymentMinorUnits => $composableBuilder(
+    column: $table.totalRepaymentMinorUnits,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get currencyCode => $composableBuilder(
     column: $table.currencyCode,
     builder: (column) => ColumnOrderings(column),
@@ -24128,6 +24904,11 @@ class $$LoansTableAnnotationComposer
 
   GeneratedColumn<int> get totalInterestMinorUnits => $composableBuilder(
     column: $table.totalInterestMinorUnits,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get totalRepaymentMinorUnits => $composableBuilder(
+    column: $table.totalRepaymentMinorUnits,
     builder: (column) => column,
   );
 
@@ -24368,6 +25149,7 @@ class $$LoansTableTableManager
                 Value<int> remainingBalanceMinorUnits = const Value.absent(),
                 Value<int> interestRateBasisPoints = const Value.absent(),
                 Value<int> totalInterestMinorUnits = const Value.absent(),
+                Value<int> totalRepaymentMinorUnits = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
                 Value<DateTime> openedAt = const Value.absent(),
                 Value<DateTime?> endDate = const Value.absent(),
@@ -24397,6 +25179,7 @@ class $$LoansTableTableManager
                 remainingBalanceMinorUnits: remainingBalanceMinorUnits,
                 interestRateBasisPoints: interestRateBasisPoints,
                 totalInterestMinorUnits: totalInterestMinorUnits,
+                totalRepaymentMinorUnits: totalRepaymentMinorUnits,
                 currencyCode: currencyCode,
                 openedAt: openedAt,
                 endDate: endDate,
@@ -24428,6 +25211,7 @@ class $$LoansTableTableManager
                 Value<int> remainingBalanceMinorUnits = const Value.absent(),
                 Value<int> interestRateBasisPoints = const Value.absent(),
                 Value<int> totalInterestMinorUnits = const Value.absent(),
+                Value<int> totalRepaymentMinorUnits = const Value.absent(),
                 Value<String> currencyCode = const Value.absent(),
                 required DateTime openedAt,
                 Value<DateTime?> endDate = const Value.absent(),
@@ -24457,6 +25241,7 @@ class $$LoansTableTableManager
                 remainingBalanceMinorUnits: remainingBalanceMinorUnits,
                 interestRateBasisPoints: interestRateBasisPoints,
                 totalInterestMinorUnits: totalInterestMinorUnits,
+                totalRepaymentMinorUnits: totalRepaymentMinorUnits,
                 currencyCode: currencyCode,
                 openedAt: openedAt,
                 endDate: endDate,
@@ -28895,6 +29680,26 @@ final class $$IncomeRecordsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static MultiTypedResultKey<$PaydaySchedulesTable, List<PaydayScheduleRecord>>
+  _paydaySchedulesRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.paydaySchedules,
+    aliasName: 'income_records__id__payday_schedules__income_record_id',
+  );
+
+  $$PaydaySchedulesTableProcessedTableManager get paydaySchedulesRefs {
+    final manager = $$PaydaySchedulesTableTableManager(
+      $_db,
+      $_db.paydaySchedules,
+    ).filter((f) => f.incomeRecordId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _paydaySchedulesRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$IncomeRecordsTableFilterComposer
@@ -29053,6 +29858,31 @@ class $$IncomeRecordsTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> paydaySchedulesRefs(
+    Expression<bool> Function($$PaydaySchedulesTableFilterComposer f) f,
+  ) {
+    final $$PaydaySchedulesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paydaySchedules,
+      getReferencedColumn: (t) => t.incomeRecordId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaydaySchedulesTableFilterComposer(
+            $db: $db,
+            $table: $db.paydaySchedules,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 }
 
@@ -29353,6 +30183,31 @@ class $$IncomeRecordsTableAnnotationComposer
     );
     return composer;
   }
+
+  Expression<T> paydaySchedulesRefs<T extends Object>(
+    Expression<T> Function($$PaydaySchedulesTableAnnotationComposer a) f,
+  ) {
+    final $$PaydaySchedulesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.paydaySchedules,
+      getReferencedColumn: (t) => t.incomeRecordId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$PaydaySchedulesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.paydaySchedules,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
 }
 
 class $$IncomeRecordsTableTableManager
@@ -29372,6 +30227,7 @@ class $$IncomeRecordsTableTableManager
             bool sourceId,
             bool receivingAccountId,
             bool transactionId,
+            bool paydaySchedulesRefs,
           })
         > {
   $$IncomeRecordsTableTableManager(_$AppDatabase db, $IncomeRecordsTable table)
@@ -29486,10 +30342,13 @@ class $$IncomeRecordsTableTableManager
                 sourceId = false,
                 receivingAccountId = false,
                 transactionId = false,
+                paydaySchedulesRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
-                  explicitlyWatchedTables: [],
+                  explicitlyWatchedTables: [
+                    if (paydaySchedulesRefs) db.paydaySchedules,
+                  ],
                   addJoins:
                       <
                         T extends TableManagerState<
@@ -29555,7 +30414,29 @@ class $$IncomeRecordsTableTableManager
                         return state;
                       },
                   getPrefetchedDataCallback: (items) async {
-                    return [];
+                    return [
+                      if (paydaySchedulesRefs)
+                        await $_getPrefetchedData<
+                          IncomeRecord,
+                          $IncomeRecordsTable,
+                          PaydayScheduleRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$IncomeRecordsTableReferences
+                              ._paydaySchedulesRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$IncomeRecordsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).paydaySchedulesRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.incomeRecordId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
                   },
                 );
               },
@@ -29579,6 +30460,7 @@ typedef $$IncomeRecordsTableProcessedTableManager =
         bool sourceId,
         bool receivingAccountId,
         bool transactionId,
+        bool paydaySchedulesRefs,
       })
     >;
 typedef $$ExpensesTableCreateCompanionBuilder =
@@ -30373,7 +31255,7 @@ typedef $$LoanPaymentsTableCreateCompanionBuilder =
       Value<String?> userId,
       required String loanId,
       Value<String?> installmentId,
-      required String accountId,
+      Value<String?> accountId,
       Value<String?> transactionId,
       Value<String?> idempotencyKey,
       required int amountMinorUnits,
@@ -30393,7 +31275,7 @@ typedef $$LoanPaymentsTableUpdateCompanionBuilder =
       Value<String?> userId,
       Value<String> loanId,
       Value<String?> installmentId,
-      Value<String> accountId,
+      Value<String?> accountId,
       Value<String?> transactionId,
       Value<String?> idempotencyKey,
       Value<int> amountMinorUnits,
@@ -30452,9 +31334,9 @@ final class $$LoanPaymentsTableReferences
       .financialAccounts
       .createAlias('loan_payments__account_id__financial_accounts__id');
 
-  $$FinancialAccountsTableProcessedTableManager get accountId {
-    final $_column = $_itemColumn<String>('account_id')!;
-
+  $$FinancialAccountsTableProcessedTableManager? get accountId {
+    final $_column = $_itemColumn<String>('account_id');
+    if ($_column == null) return null;
     final manager = $$FinancialAccountsTableTableManager(
       $_db,
       $_db.financialAccounts,
@@ -30993,7 +31875,7 @@ class $$LoanPaymentsTableTableManager
                 Value<String?> userId = const Value.absent(),
                 Value<String> loanId = const Value.absent(),
                 Value<String?> installmentId = const Value.absent(),
-                Value<String> accountId = const Value.absent(),
+                Value<String?> accountId = const Value.absent(),
                 Value<String?> transactionId = const Value.absent(),
                 Value<String?> idempotencyKey = const Value.absent(),
                 Value<int> amountMinorUnits = const Value.absent(),
@@ -31031,7 +31913,7 @@ class $$LoanPaymentsTableTableManager
                 Value<String?> userId = const Value.absent(),
                 required String loanId,
                 Value<String?> installmentId = const Value.absent(),
-                required String accountId,
+                Value<String?> accountId = const Value.absent(),
                 Value<String?> transactionId = const Value.absent(),
                 Value<String?> idempotencyKey = const Value.absent(),
                 required int amountMinorUnits,
@@ -31258,6 +32140,36 @@ final class $$SavingsGoalsTableReferences
       manager.$state.copyWith(prefetchedData: cache),
     );
   }
+
+  static MultiTypedResultKey<
+    $FinancialAllocationsTable,
+    List<FinancialAllocationRecord>
+  >
+  _financialAllocationsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.financialAllocations,
+        aliasName:
+            'savings_goals__id__financial_allocations__related_savings_goal_id',
+      );
+
+  $$FinancialAllocationsTableProcessedTableManager
+  get financialAllocationsRefs {
+    final manager =
+        $$FinancialAllocationsTableTableManager(
+          $_db,
+          $_db.financialAllocations,
+        ).filter(
+          (f) =>
+              f.relatedSavingsGoalId.id.sqlEquals($_itemColumn<String>('id')!),
+        );
+
+    final cache = $_typedResult.readTableOrNull(
+      _financialAllocationsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$SavingsGoalsTableFilterComposer
@@ -31365,6 +32277,31 @@ class $$SavingsGoalsTableFilterComposer
           }) => $$SavingsContributionsTableFilterComposer(
             $db: $db,
             $table: $db.savingsContributions,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> financialAllocationsRefs(
+    Expression<bool> Function($$FinancialAllocationsTableFilterComposer f) f,
+  ) {
+    final $$FinancialAllocationsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.financialAllocations,
+      getReferencedColumn: (t) => t.relatedSavingsGoalId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FinancialAllocationsTableFilterComposer(
+            $db: $db,
+            $table: $db.financialAllocations,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -31563,6 +32500,32 @@ class $$SavingsGoalsTableAnnotationComposer
         );
     return f(composer);
   }
+
+  Expression<T> financialAllocationsRefs<T extends Object>(
+    Expression<T> Function($$FinancialAllocationsTableAnnotationComposer a) f,
+  ) {
+    final $$FinancialAllocationsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.financialAllocations,
+          getReferencedColumn: (t) => t.relatedSavingsGoalId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$FinancialAllocationsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.financialAllocations,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$SavingsGoalsTableTableManager
@@ -31578,7 +32541,10 @@ class $$SavingsGoalsTableTableManager
           $$SavingsGoalsTableUpdateCompanionBuilder,
           (SavingsGoalRecord, $$SavingsGoalsTableReferences),
           SavingsGoalRecord,
-          PrefetchHooks Function({bool savingsContributionsRefs})
+          PrefetchHooks Function({
+            bool savingsContributionsRefs,
+            bool financialAllocationsRefs,
+          })
         > {
   $$SavingsGoalsTableTableManager(_$AppDatabase db, $SavingsGoalsTable table)
     : super(
@@ -31675,38 +32641,66 @@ class $$SavingsGoalsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({savingsContributionsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (savingsContributionsRefs) db.savingsContributions,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (savingsContributionsRefs)
-                    await $_getPrefetchedData<
-                      SavingsGoalRecord,
-                      $SavingsGoalsTable,
-                      SavingsContributionRecord
-                    >(
-                      currentTable: table,
-                      referencedTable: $$SavingsGoalsTableReferences
-                          ._savingsContributionsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$SavingsGoalsTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).savingsContributionsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where((e) => e.goalId == item.id),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                savingsContributionsRefs = false,
+                financialAllocationsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (savingsContributionsRefs) db.savingsContributions,
+                    if (financialAllocationsRefs) db.financialAllocations,
+                  ],
+                  addJoins: null,
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (savingsContributionsRefs)
+                        await $_getPrefetchedData<
+                          SavingsGoalRecord,
+                          $SavingsGoalsTable,
+                          SavingsContributionRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SavingsGoalsTableReferences
+                              ._savingsContributionsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SavingsGoalsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).savingsContributionsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.goalId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (financialAllocationsRefs)
+                        await $_getPrefetchedData<
+                          SavingsGoalRecord,
+                          $SavingsGoalsTable,
+                          FinancialAllocationRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$SavingsGoalsTableReferences
+                              ._financialAllocationsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$SavingsGoalsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).financialAllocationsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.relatedSavingsGoalId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -31723,7 +32717,10 @@ typedef $$SavingsGoalsTableProcessedTableManager =
       $$SavingsGoalsTableUpdateCompanionBuilder,
       (SavingsGoalRecord, $$SavingsGoalsTableReferences),
       SavingsGoalRecord,
-      PrefetchHooks Function({bool savingsContributionsRefs})
+      PrefetchHooks Function({
+        bool savingsContributionsRefs,
+        bool financialAllocationsRefs,
+      })
     >;
 typedef $$SavingsContributionsTableCreateCompanionBuilder =
     SavingsContributionsCompanion Function({
@@ -33142,8 +34139,14 @@ typedef $$PaydaySchedulesTableCreateCompanionBuilder =
       Value<String?> userId,
       required String name,
       required DateTime paydayDate,
+      Value<String> frequency,
       Value<int> expectedIncomeMinorUnits,
       Value<int> actualIncomeMinorUnits,
+      Value<String> currencyCode,
+      Value<String?> receivingAccountId,
+      Value<String?> incomeRecordId,
+      Value<DateTime?> actualReceivedAt,
+      Value<bool> isActive,
       Value<String> status,
       Value<String?> notes,
       required DateTime createdAt,
@@ -33160,8 +34163,14 @@ typedef $$PaydaySchedulesTableUpdateCompanionBuilder =
       Value<String?> userId,
       Value<String> name,
       Value<DateTime> paydayDate,
+      Value<String> frequency,
       Value<int> expectedIncomeMinorUnits,
       Value<int> actualIncomeMinorUnits,
+      Value<String> currencyCode,
+      Value<String?> receivingAccountId,
+      Value<String?> incomeRecordId,
+      Value<DateTime?> actualReceivedAt,
+      Value<bool> isActive,
       Value<String> status,
       Value<String?> notes,
       Value<DateTime> createdAt,
@@ -33185,6 +34194,43 @@ final class $$PaydaySchedulesTableReferences
     super.$_table,
     super.$_typedResult,
   );
+
+  static $FinancialAccountsTable _receivingAccountIdTable(_$AppDatabase db) =>
+      db.financialAccounts.createAlias(
+        'payday_schedules__receiving_account_id__financial_accounts__id',
+      );
+
+  $$FinancialAccountsTableProcessedTableManager? get receivingAccountId {
+    final $_column = $_itemColumn<String>('receiving_account_id');
+    if ($_column == null) return null;
+    final manager = $$FinancialAccountsTableTableManager(
+      $_db,
+      $_db.financialAccounts,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_receivingAccountIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $IncomeRecordsTable _incomeRecordIdTable(_$AppDatabase db) => db
+      .incomeRecords
+      .createAlias('payday_schedules__income_record_id__income_records__id');
+
+  $$IncomeRecordsTableProcessedTableManager? get incomeRecordId {
+    final $_column = $_itemColumn<String>('income_record_id');
+    if ($_column == null) return null;
+    final manager = $$IncomeRecordsTableTableManager(
+      $_db,
+      $_db.incomeRecords,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_incomeRecordIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 
   static MultiTypedResultKey<
     $FinancialAllocationsTable,
@@ -33245,6 +34291,11 @@ class $$PaydaySchedulesTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get frequency => $composableBuilder(
+    column: $table.frequency,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get expectedIncomeMinorUnits => $composableBuilder(
     column: $table.expectedIncomeMinorUnits,
     builder: (column) => ColumnFilters(column),
@@ -33252,6 +34303,21 @@ class $$PaydaySchedulesTableFilterComposer
 
   ColumnFilters<int> get actualIncomeMinorUnits => $composableBuilder(
     column: $table.actualIncomeMinorUnits,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get actualReceivedAt => $composableBuilder(
+    column: $table.actualReceivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -33294,6 +34360,52 @@ class $$PaydaySchedulesTableFilterComposer
     column: $table.syncState,
     builder: (column) => ColumnFilters(column),
   );
+
+  $$FinancialAccountsTableFilterComposer get receivingAccountId {
+    final $$FinancialAccountsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.receivingAccountId,
+      referencedTable: $db.financialAccounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FinancialAccountsTableFilterComposer(
+            $db: $db,
+            $table: $db.financialAccounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$IncomeRecordsTableFilterComposer get incomeRecordId {
+    final $$IncomeRecordsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.incomeRecordId,
+      referencedTable: $db.incomeRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IncomeRecordsTableFilterComposer(
+            $db: $db,
+            $table: $db.incomeRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<bool> financialAllocationsRefs(
     Expression<bool> Function($$FinancialAllocationsTableFilterComposer f) f,
@@ -33350,6 +34462,11 @@ class $$PaydaySchedulesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get frequency => $composableBuilder(
+    column: $table.frequency,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get expectedIncomeMinorUnits => $composableBuilder(
     column: $table.expectedIncomeMinorUnits,
     builder: (column) => ColumnOrderings(column),
@@ -33357,6 +34474,21 @@ class $$PaydaySchedulesTableOrderingComposer
 
   ColumnOrderings<int> get actualIncomeMinorUnits => $composableBuilder(
     column: $table.actualIncomeMinorUnits,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get actualReceivedAt => $composableBuilder(
+    column: $table.actualReceivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isActive => $composableBuilder(
+    column: $table.isActive,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -33399,6 +34531,52 @@ class $$PaydaySchedulesTableOrderingComposer
     column: $table.syncState,
     builder: (column) => ColumnOrderings(column),
   );
+
+  $$FinancialAccountsTableOrderingComposer get receivingAccountId {
+    final $$FinancialAccountsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.receivingAccountId,
+      referencedTable: $db.financialAccounts,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$FinancialAccountsTableOrderingComposer(
+            $db: $db,
+            $table: $db.financialAccounts,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$IncomeRecordsTableOrderingComposer get incomeRecordId {
+    final $$IncomeRecordsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.incomeRecordId,
+      referencedTable: $db.incomeRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IncomeRecordsTableOrderingComposer(
+            $db: $db,
+            $table: $db.incomeRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$PaydaySchedulesTableAnnotationComposer
@@ -33424,6 +34602,9 @@ class $$PaydaySchedulesTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get frequency =>
+      $composableBuilder(column: $table.frequency, builder: (column) => column);
+
   GeneratedColumn<int> get expectedIncomeMinorUnits => $composableBuilder(
     column: $table.expectedIncomeMinorUnits,
     builder: (column) => column,
@@ -33433,6 +34614,19 @@ class $$PaydaySchedulesTableAnnotationComposer
     column: $table.actualIncomeMinorUnits,
     builder: (column) => column,
   );
+
+  GeneratedColumn<String> get currencyCode => $composableBuilder(
+    column: $table.currencyCode,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get actualReceivedAt => $composableBuilder(
+    column: $table.actualReceivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isActive =>
+      $composableBuilder(column: $table.isActive, builder: (column) => column);
 
   GeneratedColumn<String> get status =>
       $composableBuilder(column: $table.status, builder: (column) => column);
@@ -33463,6 +34657,53 @@ class $$PaydaySchedulesTableAnnotationComposer
 
   GeneratedColumn<String> get syncState =>
       $composableBuilder(column: $table.syncState, builder: (column) => column);
+
+  $$FinancialAccountsTableAnnotationComposer get receivingAccountId {
+    final $$FinancialAccountsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.receivingAccountId,
+          referencedTable: $db.financialAccounts,
+          getReferencedColumn: (t) => t.id,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$FinancialAccountsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.financialAccounts,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return composer;
+  }
+
+  $$IncomeRecordsTableAnnotationComposer get incomeRecordId {
+    final $$IncomeRecordsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.incomeRecordId,
+      referencedTable: $db.incomeRecords,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$IncomeRecordsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.incomeRecords,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 
   Expression<T> financialAllocationsRefs<T extends Object>(
     Expression<T> Function($$FinancialAllocationsTableAnnotationComposer a) f,
@@ -33504,7 +34745,11 @@ class $$PaydaySchedulesTableTableManager
           $$PaydaySchedulesTableUpdateCompanionBuilder,
           (PaydayScheduleRecord, $$PaydaySchedulesTableReferences),
           PaydayScheduleRecord,
-          PrefetchHooks Function({bool financialAllocationsRefs})
+          PrefetchHooks Function({
+            bool receivingAccountId,
+            bool incomeRecordId,
+            bool financialAllocationsRefs,
+          })
         > {
   $$PaydaySchedulesTableTableManager(
     _$AppDatabase db,
@@ -33525,8 +34770,14 @@ class $$PaydaySchedulesTableTableManager
                 Value<String?> userId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<DateTime> paydayDate = const Value.absent(),
+                Value<String> frequency = const Value.absent(),
                 Value<int> expectedIncomeMinorUnits = const Value.absent(),
                 Value<int> actualIncomeMinorUnits = const Value.absent(),
+                Value<String> currencyCode = const Value.absent(),
+                Value<String?> receivingAccountId = const Value.absent(),
+                Value<String?> incomeRecordId = const Value.absent(),
+                Value<DateTime?> actualReceivedAt = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
@@ -33541,8 +34792,14 @@ class $$PaydaySchedulesTableTableManager
                 userId: userId,
                 name: name,
                 paydayDate: paydayDate,
+                frequency: frequency,
                 expectedIncomeMinorUnits: expectedIncomeMinorUnits,
                 actualIncomeMinorUnits: actualIncomeMinorUnits,
+                currencyCode: currencyCode,
+                receivingAccountId: receivingAccountId,
+                incomeRecordId: incomeRecordId,
+                actualReceivedAt: actualReceivedAt,
+                isActive: isActive,
                 status: status,
                 notes: notes,
                 createdAt: createdAt,
@@ -33559,8 +34816,14 @@ class $$PaydaySchedulesTableTableManager
                 Value<String?> userId = const Value.absent(),
                 required String name,
                 required DateTime paydayDate,
+                Value<String> frequency = const Value.absent(),
                 Value<int> expectedIncomeMinorUnits = const Value.absent(),
                 Value<int> actualIncomeMinorUnits = const Value.absent(),
+                Value<String> currencyCode = const Value.absent(),
+                Value<String?> receivingAccountId = const Value.absent(),
+                Value<String?> incomeRecordId = const Value.absent(),
+                Value<DateTime?> actualReceivedAt = const Value.absent(),
+                Value<bool> isActive = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
                 required DateTime createdAt,
@@ -33575,8 +34838,14 @@ class $$PaydaySchedulesTableTableManager
                 userId: userId,
                 name: name,
                 paydayDate: paydayDate,
+                frequency: frequency,
                 expectedIncomeMinorUnits: expectedIncomeMinorUnits,
                 actualIncomeMinorUnits: actualIncomeMinorUnits,
+                currencyCode: currencyCode,
+                receivingAccountId: receivingAccountId,
+                incomeRecordId: incomeRecordId,
+                actualReceivedAt: actualReceivedAt,
+                isActive: isActive,
                 status: status,
                 notes: notes,
                 createdAt: createdAt,
@@ -33595,40 +34864,93 @@ class $$PaydaySchedulesTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({financialAllocationsRefs = false}) {
-            return PrefetchHooks(
-              db: db,
-              explicitlyWatchedTables: [
-                if (financialAllocationsRefs) db.financialAllocations,
-              ],
-              addJoins: null,
-              getPrefetchedDataCallback: (items) async {
-                return [
-                  if (financialAllocationsRefs)
-                    await $_getPrefetchedData<
-                      PaydayScheduleRecord,
-                      $PaydaySchedulesTable,
-                      FinancialAllocationRecord
-                    >(
-                      currentTable: table,
-                      referencedTable: $$PaydaySchedulesTableReferences
-                          ._financialAllocationsRefsTable(db),
-                      managerFromTypedResult: (p0) =>
-                          $$PaydaySchedulesTableReferences(
-                            db,
-                            table,
-                            p0,
-                          ).financialAllocationsRefs,
-                      referencedItemsForCurrentItem: (item, referencedItems) =>
-                          referencedItems.where(
-                            (e) => e.paydayScheduleId == item.id,
-                          ),
-                      typedResults: items,
-                    ),
-                ];
+          prefetchHooksCallback:
+              ({
+                receivingAccountId = false,
+                incomeRecordId = false,
+                financialAllocationsRefs = false,
+              }) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (financialAllocationsRefs) db.financialAllocations,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (receivingAccountId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.receivingAccountId,
+                                    referencedTable:
+                                        $$PaydaySchedulesTableReferences
+                                            ._receivingAccountIdTable(db),
+                                    referencedColumn:
+                                        $$PaydaySchedulesTableReferences
+                                            ._receivingAccountIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+                        if (incomeRecordId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.incomeRecordId,
+                                    referencedTable:
+                                        $$PaydaySchedulesTableReferences
+                                            ._incomeRecordIdTable(db),
+                                    referencedColumn:
+                                        $$PaydaySchedulesTableReferences
+                                            ._incomeRecordIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (financialAllocationsRefs)
+                        await $_getPrefetchedData<
+                          PaydayScheduleRecord,
+                          $PaydaySchedulesTable,
+                          FinancialAllocationRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$PaydaySchedulesTableReferences
+                              ._financialAllocationsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$PaydaySchedulesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).financialAllocationsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.paydayScheduleId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
               },
-            );
-          },
         ),
       );
 }
@@ -33645,19 +34967,28 @@ typedef $$PaydaySchedulesTableProcessedTableManager =
       $$PaydaySchedulesTableUpdateCompanionBuilder,
       (PaydayScheduleRecord, $$PaydaySchedulesTableReferences),
       PaydayScheduleRecord,
-      PrefetchHooks Function({bool financialAllocationsRefs})
+      PrefetchHooks Function({
+        bool receivingAccountId,
+        bool incomeRecordId,
+        bool financialAllocationsRefs,
+      })
     >;
 typedef $$FinancialAllocationsTableCreateCompanionBuilder =
     FinancialAllocationsCompanion Function({
       required String id,
       Value<String?> userId,
       required String paydayScheduleId,
+      Value<DateTime?> periodDate,
       Value<int> expectedIncomeMinorUnits,
       Value<int> actualIncomeMinorUnits,
       required int allocatedAmountMinorUnits,
       required String allocationCategory,
       Value<String?> relatedBillId,
+      Value<DateTime?> relatedDueDate,
       Value<String?> relatedInstallmentId,
+      Value<String?> relatedSavingsGoalId,
+      Value<int> priority,
+      Value<int> fulfilledAmountMinorUnits,
       required String allocationKey,
       Value<String> status,
       Value<String?> notes,
@@ -33673,12 +35004,17 @@ typedef $$FinancialAllocationsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String?> userId,
       Value<String> paydayScheduleId,
+      Value<DateTime?> periodDate,
       Value<int> expectedIncomeMinorUnits,
       Value<int> actualIncomeMinorUnits,
       Value<int> allocatedAmountMinorUnits,
       Value<String> allocationCategory,
       Value<String?> relatedBillId,
+      Value<DateTime?> relatedDueDate,
       Value<String?> relatedInstallmentId,
+      Value<String?> relatedSavingsGoalId,
+      Value<int> priority,
+      Value<int> fulfilledAmountMinorUnits,
       Value<String> allocationKey,
       Value<String> status,
       Value<String?> notes,
@@ -33759,6 +35095,27 @@ final class $$FinancialAllocationsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static $SavingsGoalsTable _relatedSavingsGoalIdTable(_$AppDatabase db) =>
+      db.savingsGoals.createAlias(
+        'financial_allocations__related_savings_goal_id__savings_goals__id',
+      );
+
+  $$SavingsGoalsTableProcessedTableManager? get relatedSavingsGoalId {
+    final $_column = $_itemColumn<String>('related_savings_goal_id');
+    if ($_column == null) return null;
+    final manager = $$SavingsGoalsTableTableManager(
+      $_db,
+      $_db.savingsGoals,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(
+      _relatedSavingsGoalIdTable($_db),
+    );
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
 }
 
 class $$FinancialAllocationsTableFilterComposer
@@ -33780,6 +35137,11 @@ class $$FinancialAllocationsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<DateTime> get periodDate => $composableBuilder(
+    column: $table.periodDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
   ColumnFilters<int> get expectedIncomeMinorUnits => $composableBuilder(
     column: $table.expectedIncomeMinorUnits,
     builder: (column) => ColumnFilters(column),
@@ -33797,6 +35159,21 @@ class $$FinancialAllocationsTableFilterComposer
 
   ColumnFilters<String> get allocationCategory => $composableBuilder(
     column: $table.allocationCategory,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get relatedDueDate => $composableBuilder(
+    column: $table.relatedDueDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get fulfilledAmountMinorUnits => $composableBuilder(
+    column: $table.fulfilledAmountMinorUnits,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -33908,6 +35285,29 @@ class $$FinancialAllocationsTableFilterComposer
     );
     return composer;
   }
+
+  $$SavingsGoalsTableFilterComposer get relatedSavingsGoalId {
+    final $$SavingsGoalsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.relatedSavingsGoalId,
+      referencedTable: $db.savingsGoals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SavingsGoalsTableFilterComposer(
+            $db: $db,
+            $table: $db.savingsGoals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FinancialAllocationsTableOrderingComposer
@@ -33929,6 +35329,11 @@ class $$FinancialAllocationsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get periodDate => $composableBuilder(
+    column: $table.periodDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get expectedIncomeMinorUnits => $composableBuilder(
     column: $table.expectedIncomeMinorUnits,
     builder: (column) => ColumnOrderings(column),
@@ -33946,6 +35351,21 @@ class $$FinancialAllocationsTableOrderingComposer
 
   ColumnOrderings<String> get allocationCategory => $composableBuilder(
     column: $table.allocationCategory,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get relatedDueDate => $composableBuilder(
+    column: $table.relatedDueDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get priority => $composableBuilder(
+    column: $table.priority,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get fulfilledAmountMinorUnits => $composableBuilder(
+    column: $table.fulfilledAmountMinorUnits,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -34057,6 +35477,29 @@ class $$FinancialAllocationsTableOrderingComposer
     );
     return composer;
   }
+
+  $$SavingsGoalsTableOrderingComposer get relatedSavingsGoalId {
+    final $$SavingsGoalsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.relatedSavingsGoalId,
+      referencedTable: $db.savingsGoals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SavingsGoalsTableOrderingComposer(
+            $db: $db,
+            $table: $db.savingsGoals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FinancialAllocationsTableAnnotationComposer
@@ -34073,6 +35516,11 @@ class $$FinancialAllocationsTableAnnotationComposer
 
   GeneratedColumn<String> get userId =>
       $composableBuilder(column: $table.userId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get periodDate => $composableBuilder(
+    column: $table.periodDate,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get expectedIncomeMinorUnits => $composableBuilder(
     column: $table.expectedIncomeMinorUnits,
@@ -34091,6 +35539,19 @@ class $$FinancialAllocationsTableAnnotationComposer
 
   GeneratedColumn<String> get allocationCategory => $composableBuilder(
     column: $table.allocationCategory,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get relatedDueDate => $composableBuilder(
+    column: $table.relatedDueDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get priority =>
+      $composableBuilder(column: $table.priority, builder: (column) => column);
+
+  GeneratedColumn<int> get fulfilledAmountMinorUnits => $composableBuilder(
+    column: $table.fulfilledAmountMinorUnits,
     builder: (column) => column,
   );
 
@@ -34192,6 +35653,29 @@ class $$FinancialAllocationsTableAnnotationComposer
     );
     return composer;
   }
+
+  $$SavingsGoalsTableAnnotationComposer get relatedSavingsGoalId {
+    final $$SavingsGoalsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.relatedSavingsGoalId,
+      referencedTable: $db.savingsGoals,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$SavingsGoalsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.savingsGoals,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
 }
 
 class $$FinancialAllocationsTableTableManager
@@ -34211,6 +35695,7 @@ class $$FinancialAllocationsTableTableManager
             bool paydayScheduleId,
             bool relatedBillId,
             bool relatedInstallmentId,
+            bool relatedSavingsGoalId,
           })
         > {
   $$FinancialAllocationsTableTableManager(
@@ -34237,12 +35722,17 @@ class $$FinancialAllocationsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String?> userId = const Value.absent(),
                 Value<String> paydayScheduleId = const Value.absent(),
+                Value<DateTime?> periodDate = const Value.absent(),
                 Value<int> expectedIncomeMinorUnits = const Value.absent(),
                 Value<int> actualIncomeMinorUnits = const Value.absent(),
                 Value<int> allocatedAmountMinorUnits = const Value.absent(),
                 Value<String> allocationCategory = const Value.absent(),
                 Value<String?> relatedBillId = const Value.absent(),
+                Value<DateTime?> relatedDueDate = const Value.absent(),
                 Value<String?> relatedInstallmentId = const Value.absent(),
+                Value<String?> relatedSavingsGoalId = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> fulfilledAmountMinorUnits = const Value.absent(),
                 Value<String> allocationKey = const Value.absent(),
                 Value<String> status = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
@@ -34256,12 +35746,17 @@ class $$FinancialAllocationsTableTableManager
                 id: id,
                 userId: userId,
                 paydayScheduleId: paydayScheduleId,
+                periodDate: periodDate,
                 expectedIncomeMinorUnits: expectedIncomeMinorUnits,
                 actualIncomeMinorUnits: actualIncomeMinorUnits,
                 allocatedAmountMinorUnits: allocatedAmountMinorUnits,
                 allocationCategory: allocationCategory,
                 relatedBillId: relatedBillId,
+                relatedDueDate: relatedDueDate,
                 relatedInstallmentId: relatedInstallmentId,
+                relatedSavingsGoalId: relatedSavingsGoalId,
+                priority: priority,
+                fulfilledAmountMinorUnits: fulfilledAmountMinorUnits,
                 allocationKey: allocationKey,
                 status: status,
                 notes: notes,
@@ -34277,12 +35772,17 @@ class $$FinancialAllocationsTableTableManager
                 required String id,
                 Value<String?> userId = const Value.absent(),
                 required String paydayScheduleId,
+                Value<DateTime?> periodDate = const Value.absent(),
                 Value<int> expectedIncomeMinorUnits = const Value.absent(),
                 Value<int> actualIncomeMinorUnits = const Value.absent(),
                 required int allocatedAmountMinorUnits,
                 required String allocationCategory,
                 Value<String?> relatedBillId = const Value.absent(),
+                Value<DateTime?> relatedDueDate = const Value.absent(),
                 Value<String?> relatedInstallmentId = const Value.absent(),
+                Value<String?> relatedSavingsGoalId = const Value.absent(),
+                Value<int> priority = const Value.absent(),
+                Value<int> fulfilledAmountMinorUnits = const Value.absent(),
                 required String allocationKey,
                 Value<String> status = const Value.absent(),
                 Value<String?> notes = const Value.absent(),
@@ -34296,12 +35796,17 @@ class $$FinancialAllocationsTableTableManager
                 id: id,
                 userId: userId,
                 paydayScheduleId: paydayScheduleId,
+                periodDate: periodDate,
                 expectedIncomeMinorUnits: expectedIncomeMinorUnits,
                 actualIncomeMinorUnits: actualIncomeMinorUnits,
                 allocatedAmountMinorUnits: allocatedAmountMinorUnits,
                 allocationCategory: allocationCategory,
                 relatedBillId: relatedBillId,
+                relatedDueDate: relatedDueDate,
                 relatedInstallmentId: relatedInstallmentId,
+                relatedSavingsGoalId: relatedSavingsGoalId,
+                priority: priority,
+                fulfilledAmountMinorUnits: fulfilledAmountMinorUnits,
                 allocationKey: allocationKey,
                 status: status,
                 notes: notes,
@@ -34325,6 +35830,7 @@ class $$FinancialAllocationsTableTableManager
                 paydayScheduleId = false,
                 relatedBillId = false,
                 relatedInstallmentId = false,
+                relatedSavingsGoalId = false,
               }) {
                 return PrefetchHooks(
                   db: db,
@@ -34390,6 +35896,21 @@ class $$FinancialAllocationsTableTableManager
                                   )
                                   as T;
                         }
+                        if (relatedSavingsGoalId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.relatedSavingsGoalId,
+                                    referencedTable:
+                                        $$FinancialAllocationsTableReferences
+                                            ._relatedSavingsGoalIdTable(db),
+                                    referencedColumn:
+                                        $$FinancialAllocationsTableReferences
+                                            ._relatedSavingsGoalIdTable(db)
+                                            .id,
+                                  )
+                                  as T;
+                        }
 
                         return state;
                       },
@@ -34418,6 +35939,7 @@ typedef $$FinancialAllocationsTableProcessedTableManager =
         bool paydayScheduleId,
         bool relatedBillId,
         bool relatedInstallmentId,
+        bool relatedSavingsGoalId,
       })
     >;
 typedef $$SyncQueueTableCreateCompanionBuilder =

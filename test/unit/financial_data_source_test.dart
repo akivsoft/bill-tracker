@@ -1,9 +1,11 @@
 import 'package:bill_tracker/data/local/database/app_database.dart';
 import 'package:bill_tracker/data/local/datasources/local_financial_data_source.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
+import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
 import 'package:bill_tracker/features/transactions/domain/services/financial_calculator.dart';
 import 'package:drift/native.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 
 const int php100 = 10000;
@@ -128,6 +130,63 @@ void main() {
             .get();
         expect(transactions.single.transactionType, 'account_transfer');
         expect(transactions.single.amountMinorUnits, php1000);
+      },
+    );
+
+    test(
+      'immediate income and expense preserve transaction links atomically',
+      () async {
+        final String accountId = await account(name: 'Manual ledger');
+        final String incomeTransactionId = await dataSource.recordIncome(
+          RecordIncomeInput(
+            source: 'Cash income',
+            accountId: accountId,
+            amountMinorUnits: php100,
+            occurredAt: now,
+            idempotencyKey: 'manual-income-ledger',
+          ),
+        );
+        final int afterIncome = await balanceOf(accountId);
+        expect(afterIncome, php10000 + php100);
+        final income = await database
+            .select(database.incomeRecords)
+            .getSingle();
+        expect(income.transactionId, incomeTransactionId);
+
+        final String expenseTransactionId = await dataSource.recordExpense(
+          RecordExpenseInput(
+            title: 'Cash expense',
+            accountId: accountId,
+            amountMinorUnits: php100,
+            occurredAt: now,
+            idempotencyKey: 'manual-expense-ledger',
+          ),
+        );
+        expect(await balanceOf(accountId), afterIncome - php100);
+        final expense = await database.select(database.expenses).getSingle();
+        expect(expense.transactionId, expenseTransactionId);
+        expect(
+          await database.select(database.transactions).get(),
+          hasLength(2),
+        );
+
+        expect(
+          await dataSource.recordIncome(
+            RecordIncomeInput(
+              source: 'Cash income',
+              accountId: accountId,
+              amountMinorUnits: php100,
+              occurredAt: now,
+              idempotencyKey: 'manual-income-ledger',
+            ),
+          ),
+          incomeTransactionId,
+        );
+        expect(await balanceOf(accountId), afterIncome - php100);
+        expect(
+          await database.select(database.transactions).get(),
+          hasLength(2),
+        );
       },
     );
 
@@ -324,6 +383,160 @@ void main() {
     );
 
     test(
+      'bill partial payments complete one period and duplicates do not deduct twice',
+      () async {
+        final String accountId = await account(name: 'Cash');
+        final String billId = await dataSource.createBill(
+          CreateBillInput(
+            name: 'Water',
+            amountMinorUnits: php1000,
+            dueDate: now,
+          ),
+        );
+        final BillPaymentInput first = BillPaymentInput(
+          billId: billId,
+          accountId: accountId,
+          amountMinorUnits: php100,
+          occurrenceKey: '2026-11-03',
+          paidAt: now,
+          idempotencyKey: 'bill-partial-1',
+        );
+        await dataSource.confirmBillPayment(first);
+        var bill = await (database.select(
+          database.bills,
+        )..where((row) => row.id.equals(billId))).getSingle();
+        expect(bill.status, 'partial');
+        expect(await balanceOf(accountId), php10000 - php100);
+
+        final BillPaymentInput second = BillPaymentInput(
+          billId: billId,
+          accountId: accountId,
+          amountMinorUnits: php1000 - php100,
+          occurrenceKey: '2026-11-03',
+          paidAt: now,
+          idempotencyKey: 'bill-partial-2',
+        );
+        final String transactionId = await dataSource.confirmBillPayment(
+          second,
+        );
+        final String duplicateId = await dataSource.confirmBillPayment(second);
+        bill = await (database.select(
+          database.bills,
+        )..where((row) => row.id.equals(billId))).getSingle();
+        expect(duplicateId, transactionId);
+        expect(bill.status, 'paid');
+        expect(await balanceOf(accountId), php10000 - php1000);
+        expect(
+          await database.select(database.billPayments).get(),
+          hasLength(2),
+        );
+      },
+    );
+
+    test(
+      'reversing a bill payment restores cash and reopens the bill',
+      () async {
+        final String accountId = await account(name: 'Cash');
+        final String billId = await dataSource.createBill(
+          CreateBillInput(
+            name: 'Internet',
+            amountMinorUnits: php1000,
+            dueDate: now,
+          ),
+        );
+        final String transactionId = await dataSource.confirmBillPayment(
+          BillPaymentInput(
+            billId: billId,
+            accountId: accountId,
+            amountMinorUnits: php1000,
+            occurrenceKey: '2026-11-03',
+            paidAt: now,
+            idempotencyKey: 'bill-reverse-1',
+          ),
+        );
+
+        await dataSource.reverseTransaction(
+          transactionId: transactionId,
+          reversedAt: now,
+          idempotencyKey: 'bill-reverse-key',
+        );
+
+        final bill = await (database.select(
+          database.bills,
+        )..where((row) => row.id.equals(billId))).getSingle();
+        final payment = await database
+            .select(database.billPayments)
+            .getSingle();
+        expect(await balanceOf(accountId), php10000);
+        expect(bill.status, 'unpaid');
+        expect(payment.reversedAt, isNotNull);
+      },
+    );
+
+    test(
+      'skipping a period creates a marker without a transaction or deduction',
+      () async {
+        final String accountId = await account(name: 'Cash');
+        final String billId = await dataSource.createBill(
+          CreateBillInput(
+            name: 'Phone',
+            amountMinorUnits: php1000,
+            dueDate: now,
+          ),
+        );
+        await dataSource.skipBillOccurrence(
+          SkipBillOccurrenceInput(
+            billId: billId,
+            accountId: accountId,
+            occurrenceKey: '2026-11-03',
+            skippedAt: now,
+            idempotencyKey: 'bill-skip-1',
+          ),
+        );
+        final payment = await database
+            .select(database.billPayments)
+            .getSingle();
+        expect(payment.amountMinorUnits, 0);
+        expect(payment.notes, startsWith('[skipped]'));
+        expect(await balanceOf(accountId), php10000);
+        expect(await database.select(database.transactions).get(), isEmpty);
+      },
+    );
+
+    test(
+      'bill with payment history cannot be removed and archives safely',
+      () async {
+        final String accountId = await account(name: 'Cash');
+        final String billId = await dataSource.createBill(
+          CreateBillInput(
+            name: 'Rent',
+            amountMinorUnits: php1000,
+            dueDate: now,
+          ),
+        );
+        await dataSource.confirmBillPayment(
+          BillPaymentInput(
+            billId: billId,
+            accountId: accountId,
+            amountMinorUnits: php1000,
+            occurrenceKey: '2026-11-03',
+            paidAt: now,
+            idempotencyKey: 'bill-archive-1',
+          ),
+        );
+
+        await expectLater(dataSource.deleteBill(billId), throwsStateError);
+        await dataSource.archiveBill(billId);
+
+        expect(await database.select(database.bills).get(), hasLength(1));
+        expect(
+          await database.select(database.billPayments).get(),
+          hasLength(1),
+        );
+      },
+    );
+
+    test(
       'loan installment supports a partial payment and updates balances',
       () async {
         final String accountId = await account(name: 'Cash');
@@ -365,6 +578,188 @@ void main() {
         expect(installment.status, 'partial');
         expect(installment.paidMinorUnits, php100);
         expect(loan.remainingBalanceMinorUnits, php10000 * 2 - php100);
+      },
+    );
+
+    test(
+      'separate loans may share a provider without wallet deposits',
+      () async {
+        final String firstId = await dataSource.createLoan(
+          CreateLoanInput(
+            name: 'GCash Loan A',
+            providerName: 'GCash',
+            principalMinorUnits: php1000,
+            openedAt: now,
+          ),
+        );
+        final String secondId = await dataSource.createLoan(
+          CreateLoanInput(
+            name: 'GCash Loan B',
+            providerName: 'GCash',
+            principalMinorUnits: php1000 * 2,
+            openedAt: now,
+          ),
+        );
+        final LoanRecord first = await (database.select(
+          database.loans,
+        )..where((row) => row.id.equals(firstId))).getSingle();
+        final LoanRecord second = await (database.select(
+          database.loans,
+        )..where((row) => row.id.equals(secondId))).getSingle();
+
+        expect(first.id, isNot(second.id));
+        expect(first.providerId, second.providerId);
+        expect(first.remainingBalanceMinorUnits, php1000);
+        expect(second.remainingBalanceMinorUnits, php1000 * 2);
+        expect(await database.select(database.transactions).get(), isEmpty);
+      },
+    );
+
+    test(
+      'loan funds are credited only through explicit disbursement confirmation',
+      () async {
+        final String accountId = await account(name: 'Bank');
+        final String loanId = await dataSource.createLoan(
+          CreateLoanInput(
+            name: 'New loan',
+            providerName: 'Maya Credit',
+            principalMinorUnits: php1000 * 5,
+            openedAt: now,
+            totalRepaymentMinorUnits: php1000 * 6,
+            totalInterestMinorUnits: php1000,
+          ),
+        );
+        expect(await balanceOf(accountId), php10000);
+        final String transactionId = await dataSource.recordLoanDisbursement(
+          LoanDisbursementInput(
+            loanId: loanId,
+            accountId: accountId,
+            amountMinorUnits: php1000 * 4,
+            receivedAt: now,
+            idempotencyKey: 'loan-disbursement-1',
+          ),
+        );
+        expect(await balanceOf(accountId), php10000 + php1000 * 4);
+        final TransactionRecord transaction = await (database.select(
+          database.transactions,
+        )..where((row) => row.id.equals(transactionId))).getSingle();
+        expect(transaction.transactionType, 'loan_disbursement');
+        expect(transaction.direction, 'inflow');
+        expect(transaction.relatedLoanId, loanId);
+        expect(
+          (await (database.select(
+                database.loans,
+              )..where((row) => row.id.equals(loanId))).getSingle())
+              .remainingBalanceMinorUnits,
+          php1000 * 6,
+        );
+        await dataSource.reverseTransaction(
+          transactionId: transactionId,
+          reversedAt: now.add(const Duration(days: 1)),
+          idempotencyKey: 'loan-disbursement-reversal',
+        );
+        expect(await balanceOf(accountId), php10000);
+      },
+    );
+
+    test('lender balance adjustment is explicit and wallet-neutral', () async {
+      final String accountId = await account(name: 'Cash');
+      final String loanId = await dataSource.createLoan(
+        CreateLoanInput(
+          name: 'Settled loan',
+          providerName: 'Atome',
+          principalMinorUnits: php1000,
+          openedAt: now,
+        ),
+      );
+      final String installmentId = await dataSource.createInstallment(
+        CreateInstallmentInput(
+          loanId: loanId,
+          installmentNumber: 1,
+          dueDate: now.subtract(const Duration(days: 5)),
+          scheduledAmountMinorUnits: php1000,
+        ),
+      );
+
+      await dataSource.adjustLoanBalance(
+        AdjustLoanBalanceInput(
+          loanId: loanId,
+          remainingBalanceMinorUnits: 0,
+          adjustedAt: now,
+          reason: 'Lender confirmed settlement',
+        ),
+      );
+
+      final LoanRecord loan = await (database.select(
+        database.loans,
+      )..where((row) => row.id.equals(loanId))).getSingle();
+      final LoanInstallmentRecord installment = await (database.select(
+        database.loanInstallments,
+      )..where((row) => row.id.equals(installmentId))).getSingle();
+      expect(loan.status, 'paid');
+      expect(loan.remainingBalanceMinorUnits, 0);
+      expect(loan.notes, contains('Lender confirmed settlement'));
+      expect(installment.status, 'settled');
+      expect(await balanceOf(accountId), php10000);
+      expect(await database.select(database.transactions).get(), isEmpty);
+    });
+
+    test(
+      'loan repayment can be recorded without wallet deduction and reversed',
+      () async {
+        final String accountId = await account(name: 'Cash');
+        final String loanId = await dataSource.createLoan(
+          CreateLoanInput(
+            name: 'Recorded loan',
+            providerName: 'GCash',
+            principalMinorUnits: php1000 * 2,
+            openedAt: now,
+          ),
+        );
+        final String installmentId = await dataSource.createInstallment(
+          CreateInstallmentInput(
+            loanId: loanId,
+            installmentNumber: 1,
+            dueDate: now,
+            scheduledAmountMinorUnits: php1000,
+          ),
+        );
+        final String paymentId = await dataSource.confirmLoanPayment(
+          LoanPaymentInput(
+            loanId: loanId,
+            installmentId: installmentId,
+            amountMinorUnits: php100,
+            paidAt: now.subtract(const Duration(days: 1)),
+            idempotencyKey: 'loan-no-wallet-payment',
+          ),
+        );
+        expect(await balanceOf(accountId), php10000);
+        final LoanPaymentRecord payment = await (database.select(
+          database.loanPayments,
+        )..where((row) => row.id.equals(paymentId))).getSingle();
+        expect(payment.accountId, isNull);
+        expect(payment.transactionId, isNull);
+        expect(payment.status, 'confirmed');
+        expect(
+          payment.paidAt.isAtSameMomentAs(
+            now.subtract(const Duration(days: 1)),
+          ),
+          isTrue,
+        );
+
+        await dataSource.reverseUnaccountedLoanPayment(payment.id);
+
+        final LoanRecord loan = await (database.select(
+          database.loans,
+        )..where((row) => row.id.equals(loanId))).getSingle();
+        expect(loan.remainingBalanceMinorUnits, php1000 * 2);
+        expect(await balanceOf(accountId), php10000);
+        expect(
+          (await (database.select(
+            database.loanPayments,
+          )..where((row) => row.id.equals(payment.id))).getSingle()).status,
+          'reversed',
+        );
       },
     );
 
@@ -634,6 +1029,173 @@ void main() {
           database.transactions,
         )..where((row) => row.id.equals(purchaseId))).getSingle();
         expect(payment.transactionType, 'credit_card_purchase');
+      },
+    );
+
+    test('multiple recurring payday schedules remain independent', () async {
+      final String weeklyId = await dataSource.createPaydaySchedule(
+        CreatePaydayScheduleInput(
+          name: 'Clinic salary',
+          paydayDate: DateTime(2026, 11, 6),
+          expectedIncomeMinorUnits: php10000,
+          frequency: 'weekly',
+        ),
+      );
+      final String twiceMonthlyId = await dataSource.createPaydaySchedule(
+        CreatePaydayScheduleInput(
+          name: 'Tutoring',
+          paydayDate: DateTime(2026, 11, 15),
+          expectedIncomeMinorUnits: php100,
+          frequency: 'twice_monthly',
+        ),
+      );
+
+      final List<PaydayScheduleEntry> schedules = await dataSource
+          .watchPaydaySchedules()
+          .first;
+      expect(schedules, hasLength(2));
+      expect(
+        schedules.map((PaydayScheduleEntry row) => row.id),
+        containsAll(<String>[weeklyId, twiceMonthlyId]),
+      );
+      expect(
+        schedules.singleWhere((row) => row.id == weeklyId).frequency,
+        'weekly',
+      );
+      expect(
+        schedules.singleWhere((row) => row.id == twiceMonthlyId).frequency,
+        'twice_monthly',
+      );
+    });
+
+    test(
+      'allocation keys prevent duplicate bill assignments for a payday',
+      () async {
+        final String scheduleId = await dataSource.createPaydaySchedule(
+          CreatePaydayScheduleInput(
+            name: 'Salary',
+            paydayDate: DateTime(2026, 11, 15),
+            expectedIncomeMinorUnits: php10000,
+            frequency: 'twice_monthly',
+          ),
+        );
+        final String billId = await dataSource.createBill(
+          CreateBillInput(
+            name: 'Rent',
+            amountMinorUnits: php1000,
+            dueDate: DateTime(2026, 11, 1),
+          ),
+        );
+        final CreateAllocationInput allocation = CreateAllocationInput(
+          paydayScheduleId: scheduleId,
+          allocatedAmountMinorUnits: php1000,
+          allocationCategory: 'rent',
+          allocationKey: 'rent-custom',
+          relatedBillId: billId,
+          relatedDueDate: DateTime(2026, 11, 1),
+          periodDate: DateTime(2026, 11, 15),
+        );
+        final String firstId = await dataSource.createAllocation(allocation);
+        final String duplicateId = await dataSource.createAllocation(
+          allocation,
+        );
+        expect(duplicateId, firstId);
+        expect(
+          await database.select(database.financialAllocations).get(),
+          hasLength(1),
+        );
+        final String otherSchedule = await dataSource.createPaydaySchedule(
+          CreatePaydayScheduleInput(
+            name: 'Second salary',
+            paydayDate: DateTime(2026, 11, 30),
+            expectedIncomeMinorUnits: php10000,
+            frequency: 'monthly',
+          ),
+        );
+        final String crossPaydayDuplicate = await dataSource.createAllocation(
+          CreateAllocationInput(
+            paydayScheduleId: otherSchedule,
+            allocatedAmountMinorUnits: php1000,
+            allocationCategory: 'rent',
+            allocationKey: 'another-key',
+            relatedBillId: billId,
+            relatedDueDate: DateTime(2026, 11, 1),
+            periodDate: DateTime(2026, 11, 30),
+          ),
+        );
+        expect(crossPaydayDuplicate, firstId);
+
+        final String paymentTransactionId = await dataSource.confirmBillPayment(
+          BillPaymentInput(
+            billId: billId,
+            accountId: await account(name: 'Cash'),
+            amountMinorUnits: php1000,
+            occurrenceKey: '2026-11-01',
+            paidAt: now,
+            idempotencyKey: 'rent-allocation-payment',
+          ),
+        );
+        FinancialAllocationRecord savedAllocation = await (database.select(
+          database.financialAllocations,
+        )..where((row) => row.id.equals(firstId))).getSingle();
+        expect(savedAllocation.status, 'completed');
+        expect(savedAllocation.fulfilledAmountMinorUnits, php1000);
+
+        await dataSource.reverseTransaction(
+          transactionId: paymentTransactionId,
+          reversedAt: now,
+          idempotencyKey: 'rent-allocation-reversal',
+        );
+        savedAllocation = await (database.select(
+          database.financialAllocations,
+        )..where((row) => row.id.equals(firstId))).getSingle();
+        expect(savedAllocation.status, 'planned');
+        expect(savedAllocation.fulfilledAmountMinorUnits, 0);
+      },
+    );
+
+    test(
+      'dashboard transaction streams bound date range and recent count',
+      () async {
+        final String accountId = await account(name: 'Dashboard cash');
+        for (final (String key, DateTime date) in <(String, DateTime)>[
+          ('old', DateTime.utc(2026, 9, 30)),
+          ('current', DateTime.utc(2026, 10, 5)),
+          ('latest', DateTime.utc(2026, 10, 6)),
+        ]) {
+          await database
+              .into(database.transactions)
+              .insert(
+                TransactionsCompanion.insert(
+                  id: key,
+                  accountId: accountId,
+                  transactionType: 'income',
+                  direction: const Value<String>('inflow'),
+                  title: Value<String>(key),
+                  amountMinorUnits: 1000,
+                  currencyCode: const Value<String>('PHP'),
+                  occurredAt: date,
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              );
+        }
+
+        final List<FinancialTransactionView> inRange = await dataSource
+            .watchTransactionsInRange(
+              startInclusive: DateTime.utc(2026, 10, 1),
+              endExclusive: DateTime.utc(2026, 11, 1),
+              currencyCode: 'PHP',
+            )
+            .first;
+        final List<FinancialTransactionView> recent = await dataSource
+            .watchRecentTransactions(limit: 1)
+            .first;
+
+        expect(inRange, hasLength(2));
+        expect(inRange.map((row) => row.title), <String>['current', 'latest']);
+        expect(recent, hasLength(1));
+        expect(recent.single.title, 'latest');
       },
     );
   });

@@ -1,5 +1,6 @@
 import 'package:bill_tracker/data/local/database/tables/bills.dart';
 import 'package:bill_tracker/data/local/database/tables/financial_accounts.dart';
+import 'package:bill_tracker/data/local/database/tables/income_expenses.dart';
 import 'package:bill_tracker/data/local/database/tables/loans.dart';
 import 'package:bill_tracker/data/local/database/tables/transactions.dart';
 import 'package:drift/drift.dart';
@@ -95,10 +96,18 @@ class PaydaySchedules extends Table {
   TextColumn get userId => text().nullable()();
   TextColumn get name => text().withLength(min: 1, max: 100)();
   DateTimeColumn get paydayDate => dateTime()();
+  TextColumn get frequency => text().withDefault(const Constant('one_time'))();
   IntColumn get expectedIncomeMinorUnits =>
       integer().withDefault(const Constant(0))();
   IntColumn get actualIncomeMinorUnits =>
       integer().withDefault(const Constant(0))();
+  TextColumn get currencyCode => text().withDefault(const Constant('PHP'))();
+  TextColumn get receivingAccountId =>
+      text().nullable().references(FinancialAccounts, #id)();
+  TextColumn get incomeRecordId =>
+      text().nullable().references(IncomeRecords, #id)();
+  DateTimeColumn get actualReceivedAt => dateTime().nullable()();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
   TextColumn get status => text().withDefault(const Constant('planned'))();
   TextColumn get notes => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
@@ -121,6 +130,7 @@ class FinancialAllocations extends Table {
   TextColumn get id => text()();
   TextColumn get userId => text().nullable()();
   TextColumn get paydayScheduleId => text().references(PaydaySchedules, #id)();
+  DateTimeColumn get periodDate => dateTime().nullable()();
   IntColumn get expectedIncomeMinorUnits =>
       integer().withDefault(const Constant(0))();
   IntColumn get actualIncomeMinorUnits =>
@@ -128,8 +138,14 @@ class FinancialAllocations extends Table {
   IntColumn get allocatedAmountMinorUnits => integer()();
   TextColumn get allocationCategory => text().withLength(min: 1, max: 32)();
   TextColumn get relatedBillId => text().nullable().references(Bills, #id)();
+  DateTimeColumn get relatedDueDate => dateTime().nullable()();
   TextColumn get relatedInstallmentId =>
       text().nullable().references(LoanInstallments, #id)();
+  TextColumn get relatedSavingsGoalId =>
+      text().nullable().references(SavingsGoals, #id)();
+  IntColumn get priority => integer().withDefault(const Constant(3))();
+  IntColumn get fulfilledAmountMinorUnits =>
+      integer().withDefault(const Constant(0))();
   TextColumn get allocationKey => text().unique()();
   TextColumn get status => text().withDefault(const Constant('planned'))();
   TextColumn get notes => text().nullable()();

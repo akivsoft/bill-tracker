@@ -30,6 +30,21 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.watchTransactions();
 
   @override
+  Stream<List<FinancialTransactionView>> watchRecentTransactions({int limit = 5}) =>
+      _localDataSource.watchRecentTransactions(limit: limit);
+
+  @override
+  Stream<List<FinancialTransactionView>> watchTransactionsInRange({
+    required DateTime startInclusive,
+    required DateTime endExclusive,
+    required String currencyCode,
+  }) => _localDataSource.watchTransactionsInRange(
+    startInclusive: startInclusive,
+    endExclusive: endExclusive,
+    currencyCode: currencyCode,
+  );
+
+  @override
   Stream<List<FinancialTransactionView>> watchAccountTransactions(
     String accountId,
   ) => _localDataSource.watchAccountTransactions(accountId);
@@ -45,6 +60,10 @@ final class LocalFinancialRepository implements FinancialRepository {
   Stream<List<BillEntry>> watchBills() => _localDataSource.watchBills();
 
   @override
+  Stream<List<BillPaymentEntry>> watchBillPayments() =>
+      _localDataSource.watchBillPayments();
+
+  @override
   Stream<List<LoanEntry>> watchLoans() => _localDataSource.watchLoans();
 
   @override
@@ -54,6 +73,10 @@ final class LocalFinancialRepository implements FinancialRepository {
   @override
   Stream<List<LoanInstallmentEntry>> watchAllInstallments() =>
       _localDataSource.watchAllInstallments();
+
+  @override
+  Stream<List<LoanPaymentEntry>> watchLoanPayments() =>
+      _localDataSource.watchLoanPayments();
 
   @override
   Stream<List<SavingsGoalEntry>> watchSavingsGoals() =>
@@ -128,12 +151,61 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.createBill(input);
 
   @override
+  Future<void> updateBill(UpdateBillInput input) =>
+      _localDataSource.updateBill(input);
+
+  @override
+  Future<void> setBillActive(String billId, bool isActive) =>
+      _localDataSource.setBillActive(billId, isActive);
+
+  @override
+  Future<void> archiveBill(String billId) =>
+      _localDataSource.archiveBill(billId);
+
+  @override
+  Future<void> deleteBill(String billId) => _localDataSource.deleteBill(billId);
+
+  @override
+  Future<void> skipBillOccurrence(SkipBillOccurrenceInput input) =>
+      _localDataSource.skipBillOccurrence(input);
+
+  @override
   Future<String> createLoan(CreateLoanInput input) =>
       _localDataSource.createLoan(input);
 
   @override
+  Future<void> updateLoan(UpdateLoanInput input) =>
+      _localDataSource.updateLoan(input);
+
+  @override
+  Future<void> setLoanStatus(String loanId, String status) =>
+      _localDataSource.setLoanStatus(loanId, status);
+
+  @override
+  Future<void> archiveLoan(String loanId) =>
+      _localDataSource.archiveLoan(loanId);
+
+  @override
+  Future<void> reopenLoan(String loanId) => _localDataSource.reopenLoan(loanId);
+
+  @override
+  Future<void> deleteLoan(String loanId) => _localDataSource.deleteLoan(loanId);
+
+  @override
   Future<String> createInstallment(CreateInstallmentInput input) =>
       _localDataSource.createInstallment(input);
+
+  @override
+  Future<void> updateInstallment(UpdateInstallmentInput input) =>
+      _localDataSource.updateInstallment(input);
+
+  @override
+  Future<void> deleteInstallment(String installmentId) =>
+      _localDataSource.deleteInstallment(installmentId);
+
+  @override
+  Future<void> reverseUnaccountedLoanPayment(String paymentId) =>
+      _localDataSource.reverseUnaccountedLoanPayment(paymentId);
 
   @override
   Future<String> createSavingsGoal(CreateSavingsGoalInput input) =>
@@ -144,8 +216,32 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.createPaydaySchedule(input);
 
   @override
+  Future<void> updatePaydaySchedule(UpdatePaydayScheduleInput input) =>
+      _localDataSource.updatePaydaySchedule(input);
+
+  @override
+  Future<void> setPaydayScheduleActive(String scheduleId, bool isActive) =>
+      _localDataSource.setPaydayScheduleActive(scheduleId, isActive);
+
+  @override
+  Future<void> linkPaydayReceipt(String scheduleId, String incomeRecordId) =>
+      _localDataSource.linkPaydayReceipt(scheduleId, incomeRecordId);
+
+  @override
+  Future<void> deletePaydaySchedule(String scheduleId) =>
+      _localDataSource.deletePaydaySchedule(scheduleId);
+
+  @override
   Future<String> createAllocation(CreateAllocationInput input) =>
       _localDataSource.createAllocation(input);
+
+  @override
+  Future<void> updateAllocation(UpdateAllocationInput input) =>
+      _localDataSource.updateAllocation(input);
+
+  @override
+  Future<void> deleteAllocation(String allocationId) =>
+      _localDataSource.deleteAllocation(allocationId);
 
   @override
   Future<String> confirmIncome(ConfirmIncomeInput input) =>
@@ -170,6 +266,14 @@ final class LocalFinancialRepository implements FinancialRepository {
   @override
   Future<String> confirmLoanPayment(LoanPaymentInput input) =>
       _localDataSource.confirmLoanPayment(input);
+
+  @override
+  Future<String> recordLoanDisbursement(LoanDisbursementInput input) =>
+      _localDataSource.recordLoanDisbursement(input);
+
+  @override
+  Future<void> adjustLoanBalance(AdjustLoanBalanceInput input) =>
+      _localDataSource.adjustLoanBalance(input);
 
   @override
   Future<String> transfer(TransferInput input) =>

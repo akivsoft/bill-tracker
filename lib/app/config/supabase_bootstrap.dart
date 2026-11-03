@@ -16,9 +16,8 @@ class SupabaseBootstrap {
         publishableKey: AppEnvironment.supabaseAnonKey,
       );
       isInitialized = true;
-    } catch (error, stackTrace) {
+    } catch (_) {
       debugPrint('Supabase initialization failed; offline mode is available.');
-      debugPrint('$error\n$stackTrace');
     }
   }
 }

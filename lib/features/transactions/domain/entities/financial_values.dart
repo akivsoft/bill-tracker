@@ -73,6 +73,7 @@ final class FinancialTransactionView {
     this.sourceAccountId,
     this.destinationAccountId,
     this.relatedRecordId,
+    this.relatedLoanId,
     this.reversalOfId,
     this.direction = 'none',
     this.category,
@@ -89,6 +90,7 @@ final class FinancialTransactionView {
   final String? sourceAccountId;
   final String? destinationAccountId;
   final String? relatedRecordId;
+  final String? relatedLoanId;
   final String? reversalOfId;
   final String direction;
   final String? category;

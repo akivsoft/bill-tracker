@@ -20,6 +20,7 @@ import 'package:bill_tracker/features/savings/presentation/screens/savings_scree
 import 'package:bill_tracker/features/settings/domain/entities/user_preferences.dart';
 import 'package:bill_tracker/features/settings/presentation/providers/user_preferences_provider.dart';
 import 'package:bill_tracker/features/settings/presentation/screens/settings_screen.dart';
+import 'package:bill_tracker/features/settings/presentation/screens/backup_screen.dart';
 import 'package:bill_tracker/features/shared/presentation/screens/module_placeholder_screen.dart';
 import 'package:bill_tracker/features/transactions/presentation/screens/transactions_screen.dart';
 import 'package:bill_tracker/features/wallets/presentation/screens/wallets_screen.dart';
@@ -181,6 +182,10 @@ GoRouter createAppRouter({
                 GoRoute(
                   path: 'settings',
                   builder: (context, state) => const SettingsScreen(),
+                ),
+                GoRoute(
+                  path: 'backup',
+                  builder: (context, state) => const BackupScreen(),
                 ),
               ],
             ),

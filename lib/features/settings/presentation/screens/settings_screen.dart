@@ -270,29 +270,46 @@ class SettingsScreen extends ConsumerWidget {
                   const SizedBox(height: AppSpacing.large),
                   const SectionHeader(title: 'Data'),
                   const SizedBox(height: AppSpacing.small),
-                  _PlaceholderSettingsCard(
-                    items: const <(IconData, String, String)>[
-                      (
-                        Icons.storage_rounded,
-                        'Local database',
-                        'Your financial records are stored on this device.',
-                      ),
-                      (
-                        Icons.backup_outlined,
-                        'Backup and restore',
-                        'Not available yet.',
-                      ),
-                      (
-                        Icons.sync_rounded,
-                        'Cloud synchronization',
-                        'No records are uploaded automatically.',
-                      ),
-                      (
-                        Icons.ios_share_rounded,
-                        'Export data',
-                        'Not available yet.',
-                      ),
-                    ],
+                  AppCard(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: <Widget>[
+                        const ListTile(
+                          leading: Icon(Icons.storage_rounded),
+                          title: Text('Local database'),
+                          subtitle: Text(
+                            'Your financial records remain stored on this device.',
+                          ),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.backup_outlined),
+                          title: const Text('Backup and restore'),
+                          subtitle: const Text(
+                            'Create a local backup or restore after validation.',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () =>
+                              context.push(RouteNames.moreModule('backup')),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.insert_chart_outlined),
+                          title: const Text('Export reports'),
+                          subtitle: const Text(
+                            'Share filtered reports as PDF, Excel, or CSV.',
+                          ),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () =>
+                              context.push(RouteNames.moreModule('reports')),
+                        ),
+                        const ListTile(
+                          leading: Icon(Icons.sync_rounded),
+                          title: Text('Cloud synchronization'),
+                          subtitle: Text(
+                            'Unavailable until an authenticated financial data sync backend is configured. Nothing is uploaded.',
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.large),
                   const SectionHeader(title: 'Application'),

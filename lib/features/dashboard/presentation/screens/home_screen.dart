@@ -8,7 +8,7 @@ import 'package:bill_tracker/core/widgets/empty_state.dart';
 import 'package:bill_tracker/core/widgets/section_header.dart';
 import 'package:bill_tracker/core/widgets/summary_card.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
-import 'package:bill_tracker/features/dashboard/domain/services/cash_flow_calculator.dart';
+import 'package:bill_tracker/features/dashboard/presentation/widgets/financial_analytics_panel.dart';
 import 'package:bill_tracker/features/settings/domain/entities/user_preferences.dart';
 import 'package:bill_tracker/features/settings/presentation/providers/user_preferences_provider.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
@@ -17,6 +17,7 @@ import 'package:bill_tracker/features/transactions/domain/services/financial_cal
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -34,7 +35,7 @@ class HomeScreen extends ConsumerWidget {
     final AsyncValue<List<BillEntry>> bills = ref.watch(billsOverviewProvider);
     final AsyncValue<List<LoanEntry>> loans = ref.watch(loansOverviewProvider);
     final AsyncValue<List<FinancialTransactionView>> transactions = ref.watch(
-      recentTransactionsProvider,
+      dashboardRecentTransactionsProvider,
     );
 
     return Scaffold(
@@ -52,217 +53,255 @@ class HomeScreen extends ConsumerWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 820),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.medium,
-                AppSpacing.small,
-                AppSpacing.medium,
-                AppSpacing.large,
-              ),
-              children: <Widget>[
-                Text(
-                  _greeting(preferences?.displayName),
-                  style: Theme.of(context).textTheme.headlineSmall,
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(financialAccountsProvider);
+                ref.invalidate(accountBalancesProvider);
+                ref.invalidate(incomeOverviewProvider);
+                ref.invalidate(expensesOverviewProvider);
+                ref.invalidate(billsOverviewProvider);
+                ref.invalidate(billPaymentsOverviewProvider);
+                ref.invalidate(loansOverviewProvider);
+                ref.invalidate(installmentsOverviewProvider);
+                ref.invalidate(loanPaymentsOverviewProvider);
+                ref.invalidate(savingsGoalsOverviewProvider);
+                ref.invalidate(paydaySchedulesProvider);
+                ref.invalidate(dashboardRecentTransactionsProvider);
+                try {
+                  await ref.read(dashboardRecentTransactionsProvider.future);
+                } catch (_) {
+                  // The normal stream error states remain visible after refresh.
+                }
+              },
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpacing.medium,
+                  AppSpacing.small,
+                  AppSpacing.medium,
+                  AppSpacing.large,
                 ),
-                const SizedBox(height: AppSpacing.xSmall),
-                Text(
-                  'Your money, bills, and commitments in one place.',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                children: <Widget>[
+                  Text(
+                    _greeting(preferences?.displayName),
+                    style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                ),
-                const SizedBox(height: AppSpacing.large),
-                _AvailableMoneyCard(currencyCode: currencyCode),
-                const SizedBox(height: AppSpacing.medium),
-                const _IncomeExpenseSummary(currencyCode: 'PHP'),
-                const SizedBox(height: AppSpacing.medium),
-                LayoutBuilder(
-                  builder: (BuildContext context, BoxConstraints constraints) {
-                    final int columns = constraints.maxWidth > 560 ? 3 : 1;
-                    return GridView.count(
-                      crossAxisCount: columns,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: AppSpacing.medium,
-                      mainAxisSpacing: AppSpacing.medium,
-                      childAspectRatio: columns == 1 ? 2.6 : 1.35,
+                  const SizedBox(height: AppSpacing.xSmall),
+                  Text(
+                    'Your money, bills, and commitments in one place.',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.large),
+                  _AvailableMoneyCard(
+                    currencyCode: currencyCode,
+                    onTap: () => context.go(RouteNames.walletsPath),
+                  ),
+                  const SizedBox(height: AppSpacing.medium),
+                  FinancialAnalyticsPanel(currencyCode: currencyCode),
+                  const SizedBox(height: AppSpacing.medium),
+                  LayoutBuilder(
+                    builder:
+                        (BuildContext context, BoxConstraints constraints) {
+                          final int columns = constraints.maxWidth > 560
+                              ? 3
+                              : 1;
+                          return GridView.count(
+                            crossAxisCount: columns,
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            crossAxisSpacing: AppSpacing.medium,
+                            mainAxisSpacing: AppSpacing.medium,
+                            childAspectRatio: columns == 1 ? 2.6 : 1.35,
+                            children: <Widget>[
+                              _QuickSummary(
+                                value: bills.when(
+                                  data: (List<BillEntry> value) => value
+                                      .where(
+                                        (BillEntry bill) =>
+                                            bill.isActive &&
+                                            bill.status != 'paid' &&
+                                            bill.status != 'cancelled',
+                                      )
+                                      .length
+                                      .toString(),
+                                  loading: () => '…',
+                                  error: (_, _) => '—',
+                                ),
+                                label: 'Open bills',
+                                icon: Icons.receipt_long_outlined,
+                                onTap: () => context.go(RouteNames.billsPath),
+                              ),
+                              _QuickSummary(
+                                value: loans.when(
+                                  data: (List<LoanEntry> value) => value
+                                      .where(
+                                        (LoanEntry loan) =>
+                                            loan.status == 'active',
+                                      )
+                                      .length
+                                      .toString(),
+                                  loading: () => '…',
+                                  error: (_, _) => '—',
+                                ),
+                                label: 'Active loans',
+                                icon: Icons.credit_score_outlined,
+                                onTap: () => context.go(RouteNames.loansPath),
+                              ),
+                              _QuickSummary(
+                                value: accounts.when(
+                                  data: (List<FinancialAccount> value) => value
+                                      .where(
+                                        (FinancialAccount account) =>
+                                            account.isActive,
+                                      )
+                                      .length
+                                      .toString(),
+                                  loading: () => '…',
+                                  error: (_, _) => '—',
+                                ),
+                                label: 'Active accounts',
+                                icon: Icons.account_balance_wallet_outlined,
+                                onTap: () => context.go(RouteNames.walletsPath),
+                              ),
+                            ],
+                          );
+                        },
+                  ),
+                  const SizedBox(height: AppSpacing.large),
+                  SectionHeader(
+                    title: 'Your accounts',
+                    actionLabel: 'All wallets',
+                    onAction: () => context.go(RouteNames.walletsPath),
+                  ),
+                  const SizedBox(height: AppSpacing.small),
+                  accounts.when(
+                    loading: () => const AppLoading(label: 'Loading accounts'),
+                    error: (Object error, StackTrace stackTrace) =>
+                        _InlineError(
+                          message: 'Accounts could not be loaded.',
+                          onRetry: () =>
+                              ref.invalidate(financialAccountsProvider),
+                        ),
+                    data: (List<FinancialAccount> values) {
+                      final List<FinancialAccount> active = values
+                          .where((FinancialAccount account) => account.isActive)
+                          .take(2)
+                          .toList(growable: false);
+                      if (active.isEmpty) {
+                        return AppCard(
+                          child: EmptyState(
+                            icon: Icons.wallet_outlined,
+                            title: 'Start with an account',
+                            message:
+                                'Add a cash, bank, or e-wallet balance to see your available money.',
+                            action: TextButton.icon(
+                              onPressed: () =>
+                                  context.go(RouteNames.walletsPath),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Open wallets'),
+                            ),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: active
+                            .map(
+                              (FinancialAccount account) => Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: AppSpacing.small,
+                                ),
+                                child: AccountCard(account: account),
+                              ),
+                            )
+                            .toList(growable: false),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.large),
+                  SectionHeader(
+                    title: 'Recent activity',
+                    actionLabel: 'Transactions',
+                    onAction: () =>
+                        context.go(RouteNames.moreModule('transactions')),
+                  ),
+                  const SizedBox(height: AppSpacing.small),
+                  transactions.when(
+                    loading: () => const AppLoading(label: 'Loading activity'),
+                    error: (Object error, StackTrace stackTrace) =>
+                        _InlineError(
+                          message: 'Recent activity could not be loaded.',
+                          onRetry: () =>
+                              ref.invalidate(recentTransactionsProvider),
+                        ),
+                    data: (List<FinancialTransactionView> values) {
+                      if (values.isEmpty) {
+                        return const AppCard(
+                          child: EmptyState(
+                            icon: Icons.receipt_long_outlined,
+                            title: 'No activity yet',
+                            message:
+                                'Confirmed income and payments will appear here.',
+                          ),
+                        );
+                      }
+                      return AppCard(
+                        padding: EdgeInsets.zero,
+                        child: Column(
+                          children: values
+                              .take(4)
+                              .map((FinancialTransactionView transaction) {
+                                final bool isIncome = <String>{
+                                  'income',
+                                  'transfer_in',
+                                }.contains(transaction.type);
+                                final String sign = isIncome ? '+' : '−';
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    child: Icon(
+                                      _transactionIcon(transaction.type),
+                                    ),
+                                  ),
+                                  title: Text(transaction.title),
+                                  subtitle: Text(
+                                    '${_labelForTransaction(transaction.type)} · ${_accountName(accounts.asData?.value ?? const <FinancialAccount>[], transaction.sourceAccountId ?? transaction.destinationAccountId)} · ${DateFormat.yMMMd().format(transaction.occurredAt.toLocal())}',
+                                  ),
+                                  trailing: Text(
+                                    '$sign${Money(transaction.amountMinorUnits, currencyCode: transaction.currencyCode).format()}',
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelLarge,
+                                  ),
+                                  onTap: () => context.go(
+                                    RouteNames.moreModule('transactions'),
+                                  ),
+                                );
+                              })
+                              .toList(growable: false),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: AppSpacing.medium),
+                  AppCard(
+                    child: Row(
                       children: <Widget>[
-                        _QuickSummary(
-                          value: bills.when(
-                            data: (List<BillEntry> value) => value
-                                .where(
-                                  (BillEntry bill) =>
-                                      bill.isActive &&
-                                      bill.status != 'paid' &&
-                                      bill.status != 'cancelled',
-                                )
-                                .length
-                                .toString(),
-                            loading: () => '…',
-                            error: (_, _) => '—',
-                          ),
-                          label: 'Open bills',
-                          icon: Icons.receipt_long_outlined,
-                          onTap: () => context.go(RouteNames.billsPath),
+                        Icon(
+                          Icons.offline_bolt_outlined,
+                          color: Theme.of(context).colorScheme.secondary,
                         ),
-                        _QuickSummary(
-                          value: loans.when(
-                            data: (List<LoanEntry> value) => value
-                                .where(
-                                  (LoanEntry loan) => loan.status == 'active',
-                                )
-                                .length
-                                .toString(),
-                            loading: () => '…',
-                            error: (_, _) => '—',
+                        const SizedBox(width: AppSpacing.medium),
+                        Expanded(
+                          child: Text(
+                            'Your records are stored on this device. Online account access is optional.',
+                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
-                          label: 'Active loans',
-                          icon: Icons.credit_score_outlined,
-                          onTap: () => context.go(RouteNames.loansPath),
-                        ),
-                        _QuickSummary(
-                          value: accounts.when(
-                            data: (List<FinancialAccount> value) => value
-                                .where(
-                                  (FinancialAccount account) =>
-                                      account.isActive,
-                                )
-                                .length
-                                .toString(),
-                            loading: () => '…',
-                            error: (_, _) => '—',
-                          ),
-                          label: 'Active accounts',
-                          icon: Icons.account_balance_wallet_outlined,
-                          onTap: () => context.go(RouteNames.walletsPath),
                         ),
                       ],
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSpacing.large),
-                SectionHeader(
-                  title: 'Your accounts',
-                  actionLabel: 'All wallets',
-                  onAction: () => context.go(RouteNames.walletsPath),
-                ),
-                const SizedBox(height: AppSpacing.small),
-                accounts.when(
-                  loading: () => const AppLoading(label: 'Loading accounts'),
-                  error: (Object error, StackTrace stackTrace) => _InlineError(
-                    message: 'Accounts could not be loaded.',
-                    onRetry: () => ref.invalidate(financialAccountsProvider),
+                    ),
                   ),
-                  data: (List<FinancialAccount> values) {
-                    final List<FinancialAccount> active = values
-                        .where((FinancialAccount account) => account.isActive)
-                        .take(2)
-                        .toList(growable: false);
-                    if (active.isEmpty) {
-                      return AppCard(
-                        child: EmptyState(
-                          icon: Icons.wallet_outlined,
-                          title: 'Start with an account',
-                          message:
-                              'Add a cash, bank, or e-wallet balance to see your available money.',
-                          action: TextButton.icon(
-                            onPressed: () => context.go(RouteNames.walletsPath),
-                            icon: const Icon(Icons.add_rounded),
-                            label: const Text('Open wallets'),
-                          ),
-                        ),
-                      );
-                    }
-                    return Column(
-                      children: active
-                          .map(
-                            (FinancialAccount account) => Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: AppSpacing.small,
-                              ),
-                              child: AccountCard(account: account),
-                            ),
-                          )
-                          .toList(growable: false),
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSpacing.large),
-                SectionHeader(
-                  title: 'Recent activity',
-                  actionLabel: 'Transactions',
-                  onAction: () =>
-                      context.go(RouteNames.moreModule('transactions')),
-                ),
-                const SizedBox(height: AppSpacing.small),
-                transactions.when(
-                  loading: () => const AppLoading(label: 'Loading activity'),
-                  error: (Object error, StackTrace stackTrace) => _InlineError(
-                    message: 'Recent activity could not be loaded.',
-                    onRetry: () => ref.invalidate(recentTransactionsProvider),
-                  ),
-                  data: (List<FinancialTransactionView> values) {
-                    if (values.isEmpty) {
-                      return const AppCard(
-                        child: EmptyState(
-                          icon: Icons.receipt_long_outlined,
-                          title: 'No activity yet',
-                          message:
-                              'Confirmed income and payments will appear here.',
-                        ),
-                      );
-                    }
-                    return AppCard(
-                      padding: EdgeInsets.zero,
-                      child: Column(
-                        children: values
-                            .take(4)
-                            .map((FinancialTransactionView transaction) {
-                              final bool isIncome = <String>{
-                                'income',
-                                'transfer_in',
-                              }.contains(transaction.type);
-                              final String sign = isIncome ? '+' : '−';
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  child: Icon(
-                                    _transactionIcon(transaction.type),
-                                  ),
-                                ),
-                                title: Text(transaction.title),
-                                subtitle: Text(
-                                  _labelForTransaction(transaction.type),
-                                ),
-                                trailing: Text(
-                                  '$sign${Money(transaction.amountMinorUnits, currencyCode: transaction.currencyCode).format()}',
-                                  style: Theme.of(context).textTheme.labelLarge,
-                                ),
-                              );
-                            })
-                            .toList(growable: false),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: AppSpacing.medium),
-                AppCard(
-                  child: Row(
-                    children: <Widget>[
-                      Icon(
-                        Icons.offline_bolt_outlined,
-                        color: Theme.of(context).colorScheme.secondary,
-                      ),
-                      const SizedBox(width: AppSpacing.medium),
-                      Expanded(
-                        child: Text(
-                          'Your records are stored on this device. Online account access is optional.',
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -284,146 +323,20 @@ class HomeScreen extends ConsumerWidget {
   };
 
   String _labelForTransaction(String type) => type.replaceAll('_', ' ');
-}
 
-class _IncomeExpenseSummary extends ConsumerStatefulWidget {
-  const _IncomeExpenseSummary({required this.currencyCode});
-
-  final String currencyCode;
-
-  @override
-  ConsumerState<_IncomeExpenseSummary> createState() =>
-      _IncomeExpenseSummaryState();
-}
-
-class _IncomeExpenseSummaryState extends ConsumerState<_IncomeExpenseSummary> {
-  String _period = 'month';
-
-  @override
-  Widget build(BuildContext context) {
-    final incomes = ref.watch(incomeOverviewProvider);
-    final expenses = ref.watch(expensesOverviewProvider);
-    final categories = ref.watch(expenseCategoriesProvider);
-    final DateTime now = DateTime.now();
-    final DateTime start = switch (_period) {
-      'day' => DateTime(now.year, now.month, now.day),
-      'week' => DateTime(
-        now.year,
-        now.month,
-        now.day,
-      ).subtract(Duration(days: now.weekday - 1)),
-      'quarter' => DateTime(now.year, ((now.month - 1) ~/ 3) * 3 + 1),
-      'year' => DateTime(now.year),
-      _ => DateTime(now.year, now.month),
-    };
-    final CashFlowSummary flow = CashFlowCalculator.summarize(
-      incomes: incomes.asData?.value ?? const <IncomeEntry>[],
-      expenses: expenses.asData?.value ?? const <ExpenseEntry>[],
-      start: start,
-      endExclusive: DateTime(now.year, now.month, now.day + 1),
-    );
-    final Map<String, String> names = <String, String>{
-      for (final CategoryEntry item
-          in categories.asData?.value ?? const <CategoryEntry>[])
-        item.id: item.name,
-    };
-    final List<MapEntry<String?, int>> topCategories =
-        flow.expensesByCategory.entries.toList()..sort(
-          (MapEntry<String?, int> a, MapEntry<String?, int> b) =>
-              b.value.compareTo(a.value),
-        );
-    return AppCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  'Income and expenses',
-                  style: Theme.of(context).textTheme.titleLarge,
-                ),
-              ),
-              DropdownButton<String>(
-                value: _period,
-                items: const <DropdownMenuItem<String>>[
-                  DropdownMenuItem(value: 'day', child: Text('Today')),
-                  DropdownMenuItem(value: 'week', child: Text('Week')),
-                  DropdownMenuItem(value: 'month', child: Text('Month')),
-                  DropdownMenuItem(value: 'quarter', child: Text('Quarter')),
-                  DropdownMenuItem(value: 'year', child: Text('Year')),
-                ],
-                onChanged: (String? value) =>
-                    setState(() => _period = value ?? 'month'),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.small),
-          _flowLine(
-            'Income received',
-            flow.incomeReceivedMinorUnits,
-            Icons.check_circle_outline,
-          ),
-          _flowLine(
-            'Expected income',
-            flow.expectedIncomeMinorUnits,
-            Icons.schedule_outlined,
-          ),
-          _flowLine(
-            'Recorded expenses',
-            flow.expensesMinorUnits,
-            Icons.north_east_rounded,
-          ),
-          _flowLine(
-            'Recorded cash flow',
-            flow.remainingCashFlowMinorUnits,
-            Icons.swap_vert_rounded,
-          ),
-          if (topCategories.isNotEmpty) ...<Widget>[
-            const Divider(height: AppSpacing.large),
-            Text(
-              'Spending by category',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            ...topCategories
-                .take(3)
-                .map(
-                  (MapEntry<String?, int> entry) => _flowLine(
-                    names[entry.key] ?? 'Uncategorised',
-                    entry.value,
-                    Icons.label_outline,
-                  ),
-                ),
-          ],
-          if (incomes.isLoading || expenses.isLoading)
-            const LinearProgressIndicator(),
-          if (incomes.hasError || expenses.hasError)
-            const Text('Some income or expense totals could not be loaded.'),
-        ],
-      ),
-    );
-  }
-
-  Widget _flowLine(String label, int amount, IconData icon) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xSmall),
-    child: Row(
-      children: <Widget>[
-        Icon(icon, size: 18),
-        const SizedBox(width: AppSpacing.small),
-        Expanded(child: Text(label)),
-        Text(
-          Money(amount, currencyCode: widget.currencyCode).format(),
-          style: Theme.of(context).textTheme.titleSmall,
-        ),
-      ],
-    ),
-  );
+  String _accountName(List<FinancialAccount> accounts, String? id) =>
+      accounts
+          .where((FinancialAccount account) => account.id == id)
+          .map((FinancialAccount account) => account.name)
+          .firstOrNull ??
+      'Account';
 }
 
 class _AvailableMoneyCard extends ConsumerWidget {
-  const _AvailableMoneyCard({required this.currencyCode});
+  const _AvailableMoneyCard({required this.currencyCode, this.onTap});
 
   final String currencyCode;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -443,11 +356,15 @@ class _AvailableMoneyCard extends ConsumerWidget {
           values,
           currencyCode: currencyCode,
         );
-        return SummaryCard(
-          label: 'Actual available money',
-          value: Money(available, currencyCode: currencyCode).format(),
-          icon: Icons.account_balance_wallet_outlined,
-          caption: 'Credit limits and expected income are excluded.',
+        return InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+          child: SummaryCard(
+            label: 'Actual available money',
+            value: Money(available, currencyCode: currencyCode).format(),
+            icon: Icons.account_balance_wallet_outlined,
+            caption: 'Credit limits and expected income are excluded.',
+          ),
         );
       },
     );

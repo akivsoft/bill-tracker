@@ -262,6 +262,52 @@ final class CreateBillInput {
   final String? notes;
 }
 
+final class UpdateBillInput {
+  const UpdateBillInput({
+    required this.billId,
+    required this.name,
+    required this.amountMinorUnits,
+    required this.dueDate,
+    required this.frequency,
+    this.currencyCode = 'PHP',
+    this.categoryId,
+    this.paymentAccountId,
+    this.reminderConfiguration,
+    this.automaticAllocation = false,
+    this.notes,
+  });
+
+  final String billId;
+  final String name;
+  final int amountMinorUnits;
+  final DateTime dueDate;
+  final String frequency;
+  final String currencyCode;
+  final String? categoryId;
+  final String? paymentAccountId;
+  final String? reminderConfiguration;
+  final bool automaticAllocation;
+  final String? notes;
+}
+
+final class SkipBillOccurrenceInput {
+  const SkipBillOccurrenceInput({
+    required this.billId,
+    required this.occurrenceKey,
+    required this.skippedAt,
+    required this.idempotencyKey,
+    required this.accountId,
+    this.notes,
+  });
+
+  final String billId;
+  final String occurrenceKey;
+  final DateTime skippedAt;
+  final String idempotencyKey;
+  final String accountId;
+  final String? notes;
+}
+
 final class CreateLoanInput {
   const CreateLoanInput({
     required this.name,
@@ -272,6 +318,7 @@ final class CreateLoanInput {
     this.providerId,
     this.currencyCode = 'PHP',
     this.remainingBalanceMinorUnits,
+    this.totalRepaymentMinorUnits,
     this.interestRateBasisPoints = 0,
     this.totalInterestMinorUnits = 0,
     this.endDate,
@@ -289,6 +336,7 @@ final class CreateLoanInput {
   final String? providerId;
   final int principalMinorUnits;
   final int? remainingBalanceMinorUnits;
+  final int? totalRepaymentMinorUnits;
   final int interestRateBasisPoints;
   final int totalInterestMinorUnits;
   final String currencyCode;
@@ -322,6 +370,62 @@ final class CreateInstallmentInput {
   final String? notes;
 }
 
+final class UpdateLoanInput {
+  const UpdateLoanInput({
+    required this.loanId,
+    required this.name,
+    required this.providerName,
+    required this.principalMinorUnits,
+    required this.remainingBalanceMinorUnits,
+    required this.totalRepaymentMinorUnits,
+    required this.interestRateBasisPoints,
+    required this.totalInterestMinorUnits,
+    required this.openedAt,
+    required this.paymentFrequency,
+    required this.installmentAmountMinorUnits,
+    required this.totalInstallments,
+    this.providerId,
+    this.endDate,
+    this.durationMonths,
+    this.paymentAccountId,
+    this.notes,
+  });
+
+  final String loanId;
+  final String name;
+  final String providerName;
+  final String? providerId;
+  final int principalMinorUnits;
+  final int remainingBalanceMinorUnits;
+  final int totalRepaymentMinorUnits;
+  final int interestRateBasisPoints;
+  final int totalInterestMinorUnits;
+  final DateTime openedAt;
+  final DateTime? endDate;
+  final int? durationMonths;
+  final String paymentFrequency;
+  final int installmentAmountMinorUnits;
+  final int totalInstallments;
+  final String? paymentAccountId;
+  final String? notes;
+}
+
+final class UpdateInstallmentInput {
+  const UpdateInstallmentInput({
+    required this.installmentId,
+    required this.dueDate,
+    required this.scheduledAmountMinorUnits,
+    this.paymentAccountId,
+    this.notes,
+  });
+
+  final String installmentId;
+  final DateTime dueDate;
+  final int scheduledAmountMinorUnits;
+  final String? paymentAccountId;
+  final String? notes;
+}
+
 final class CreateSavingsGoalInput {
   const CreateSavingsGoalInput({
     required this.name,
@@ -348,6 +452,9 @@ final class CreatePaydayScheduleInput {
     required this.paydayDate,
     this.userId,
     this.expectedIncomeMinorUnits = 0,
+    this.frequency = 'monthly',
+    this.currencyCode = 'PHP',
+    this.receivingAccountId,
     this.notes,
   });
 
@@ -355,6 +462,31 @@ final class CreatePaydayScheduleInput {
   final String name;
   final DateTime paydayDate;
   final int expectedIncomeMinorUnits;
+  final String frequency;
+  final String currencyCode;
+  final String? receivingAccountId;
+  final String? notes;
+}
+
+final class UpdatePaydayScheduleInput {
+  const UpdatePaydayScheduleInput({
+    required this.id,
+    required this.name,
+    required this.paydayDate,
+    required this.expectedIncomeMinorUnits,
+    required this.frequency,
+    required this.currencyCode,
+    this.receivingAccountId,
+    this.notes,
+  });
+
+  final String id;
+  final String name;
+  final DateTime paydayDate;
+  final int expectedIncomeMinorUnits;
+  final String frequency;
+  final String currencyCode;
+  final String? receivingAccountId;
   final String? notes;
 }
 
@@ -368,7 +500,11 @@ final class CreateAllocationInput {
     this.expectedIncomeMinorUnits = 0,
     this.actualIncomeMinorUnits = 0,
     this.relatedBillId,
+    this.relatedDueDate,
     this.relatedInstallmentId,
+    this.relatedSavingsGoalId,
+    this.periodDate,
+    this.priority = 3,
     this.notes,
   });
 
@@ -379,8 +515,38 @@ final class CreateAllocationInput {
   final int allocatedAmountMinorUnits;
   final String allocationCategory;
   final String? relatedBillId;
+  final DateTime? relatedDueDate;
   final String? relatedInstallmentId;
+  final String? relatedSavingsGoalId;
+  final DateTime? periodDate;
+  final int priority;
   final String allocationKey;
+  final String? notes;
+}
+
+final class UpdateAllocationInput {
+  const UpdateAllocationInput({
+    required this.id,
+    required this.allocatedAmountMinorUnits,
+    required this.allocationCategory,
+    required this.priority,
+    this.periodDate,
+    this.relatedBillId,
+    this.relatedDueDate,
+    this.relatedInstallmentId,
+    this.relatedSavingsGoalId,
+    this.notes,
+  });
+
+  final String id;
+  final int allocatedAmountMinorUnits;
+  final String allocationCategory;
+  final int priority;
+  final DateTime? periodDate;
+  final String? relatedBillId;
+  final DateTime? relatedDueDate;
+  final String? relatedInstallmentId;
+  final String? relatedSavingsGoalId;
   final String? notes;
 }
 
@@ -436,7 +602,7 @@ final class LoanPaymentInput {
   const LoanPaymentInput({
     required this.loanId,
     required this.installmentId,
-    required this.accountId,
+    this.accountId,
     required this.amountMinorUnits,
     required this.paidAt,
     required this.idempotencyKey,
@@ -445,11 +611,43 @@ final class LoanPaymentInput {
 
   final String loanId;
   final String installmentId;
-  final String accountId;
+  final String? accountId;
   final int amountMinorUnits;
   final DateTime paidAt;
   final String idempotencyKey;
   final String? notes;
+}
+
+final class LoanDisbursementInput {
+  const LoanDisbursementInput({
+    required this.loanId,
+    required this.accountId,
+    required this.amountMinorUnits,
+    required this.receivedAt,
+    required this.idempotencyKey,
+    this.notes,
+  });
+
+  final String loanId;
+  final String accountId;
+  final int amountMinorUnits;
+  final DateTime receivedAt;
+  final String idempotencyKey;
+  final String? notes;
+}
+
+final class AdjustLoanBalanceInput {
+  const AdjustLoanBalanceInput({
+    required this.loanId,
+    required this.remainingBalanceMinorUnits,
+    required this.adjustedAt,
+    required this.reason,
+  });
+
+  final String loanId;
+  final int remainingBalanceMinorUnits;
+  final DateTime adjustedAt;
+  final String reason;
 }
 
 final class TransferInput {

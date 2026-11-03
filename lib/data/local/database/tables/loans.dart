@@ -42,6 +42,8 @@ class Loans extends Table {
       integer().withDefault(const Constant(0))();
   IntColumn get totalInterestMinorUnits =>
       integer().withDefault(const Constant(0))();
+  IntColumn get totalRepaymentMinorUnits =>
+      integer().withDefault(const Constant(0))();
   TextColumn get currencyCode => text().withDefault(const Constant('PHP'))();
   DateTimeColumn get openedAt => dateTime()();
   DateTimeColumn get endDate => dateTime().nullable()();
@@ -112,7 +114,8 @@ class LoanPayments extends Table {
   TextColumn get loanId => text().references(Loans, #id)();
   TextColumn get installmentId =>
       text().nullable().references(LoanInstallments, #id)();
-  TextColumn get accountId => text().references(FinancialAccounts, #id)();
+  TextColumn get accountId =>
+      text().nullable().references(FinancialAccounts, #id)();
   TextColumn get transactionId =>
       text().nullable().unique().references(Transactions, #id)();
   TextColumn get idempotencyKey => text().nullable()();

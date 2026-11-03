@@ -1,5 +1,6 @@
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
+import 'package:bill_tracker/features/dashboard/domain/services/financial_analytics.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,6 +39,13 @@ final StreamProvider<List<CategoryEntry>> expenseCategoriesProvider =
           .watchCategories(categoryType: 'expense'),
     );
 
+final StreamProvider<List<CategoryEntry>> billCategoriesProvider =
+    StreamProvider<List<CategoryEntry>>(
+      (Ref ref) => ref
+          .watch(financialRepositoryProvider)
+          .watchCategories(categoryType: 'bill'),
+    );
+
 final StreamProvider<List<FinancialAccount>> walletManagementAccountsProvider =
     StreamProvider<List<FinancialAccount>>(
       (Ref ref) =>
@@ -61,6 +69,11 @@ final StreamProvider<List<BillEntry>> billsOverviewProvider =
       (Ref ref) => ref.watch(financialRepositoryProvider).watchBills(),
     );
 
+final StreamProvider<List<BillPaymentEntry>> billPaymentsOverviewProvider =
+    StreamProvider<List<BillPaymentEntry>>(
+      (Ref ref) => ref.watch(financialRepositoryProvider).watchBillPayments(),
+    );
+
 final StreamProvider<List<LoanEntry>> loansOverviewProvider =
     StreamProvider<List<LoanEntry>>(
       (Ref ref) => ref.watch(financialRepositoryProvider).watchLoans(),
@@ -72,7 +85,47 @@ final StreamProvider<List<LoanInstallmentEntry>> installmentsOverviewProvider =
           ref.watch(financialRepositoryProvider).watchAllInstallments(),
     );
 
+final StreamProvider<List<LoanPaymentEntry>> loanPaymentsOverviewProvider =
+    StreamProvider<List<LoanPaymentEntry>>(
+      (Ref ref) => ref.watch(financialRepositoryProvider).watchLoanPayments(),
+    );
+
+final StreamProvider<List<SavingsGoalEntry>> savingsGoalsOverviewProvider =
+    StreamProvider<List<SavingsGoalEntry>>(
+      (Ref ref) => ref.watch(financialRepositoryProvider).watchSavingsGoals(),
+    );
+
+final StreamProvider<List<PaydayScheduleEntry>> paydaySchedulesProvider =
+    StreamProvider<List<PaydayScheduleEntry>>(
+      (Ref ref) =>
+          ref.watch(financialRepositoryProvider).watchPaydaySchedules(),
+    );
+
+final paydayAllocationsProvider =
+    StreamProvider.family<List<AllocationEntry>, String>(
+      (Ref ref, String scheduleId) =>
+          ref.watch(financialRepositoryProvider).watchAllocations(scheduleId),
+    );
+
 final StreamProvider<List<FinancialTransactionView>>
 recentTransactionsProvider = StreamProvider<List<FinancialTransactionView>>(
   (Ref ref) => ref.watch(financialRepositoryProvider).watchTransactions(),
 );
+
+final dashboardRecentTransactionsProvider =
+    StreamProvider<List<FinancialTransactionView>>(
+      (Ref ref) => ref
+          .watch(financialRepositoryProvider)
+          .watchRecentTransactions(limit: 5),
+    );
+
+final dashboardTransactionsProvider =
+    StreamProvider.family<List<FinancialTransactionView>, DashboardDateWindow>(
+      (Ref ref, DashboardDateWindow window) => ref
+          .watch(financialRepositoryProvider)
+          .watchTransactionsInRange(
+            startInclusive: window.queryStartUtc,
+            endExclusive: window.queryEndUtc,
+            currencyCode: window.currencyCode,
+          ),
+    );

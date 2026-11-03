@@ -41,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: AppConfig.databaseName));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -89,6 +89,55 @@ class AppDatabase extends _$AppDatabase {
           'UPDATE financial_accounts '
           'SET opening_outstanding_credit_minor_units = outstanding_credit_minor_units '
           "WHERE account_type = 'credit_card'",
+        );
+      }
+      if (from < 5) {
+        await migrator.alterTable(TableMigration(loanPayments));
+      }
+      if (from < 6 && from >= 2) {
+        await migrator.addColumn(loans, loans.totalRepaymentMinorUnits);
+      }
+      if (from < 6) {
+        await customStatement(
+          'UPDATE loans SET total_repayment_minor_units = '
+          'principal_minor_units + total_interest_minor_units',
+        );
+      }
+      if (from < 7 && from >= 2) {
+        await migrator.addColumn(paydaySchedules, paydaySchedules.frequency);
+        await migrator.addColumn(paydaySchedules, paydaySchedules.currencyCode);
+        await migrator.addColumn(
+          paydaySchedules,
+          paydaySchedules.receivingAccountId,
+        );
+        await migrator.addColumn(
+          paydaySchedules,
+          paydaySchedules.incomeRecordId,
+        );
+        await migrator.addColumn(
+          paydaySchedules,
+          paydaySchedules.actualReceivedAt,
+        );
+        await migrator.addColumn(paydaySchedules, paydaySchedules.isActive);
+        await migrator.addColumn(
+          financialAllocations,
+          financialAllocations.periodDate,
+        );
+        await migrator.addColumn(
+          financialAllocations,
+          financialAllocations.relatedDueDate,
+        );
+        await migrator.addColumn(
+          financialAllocations,
+          financialAllocations.relatedSavingsGoalId,
+        );
+        await migrator.addColumn(
+          financialAllocations,
+          financialAllocations.priority,
+        );
+        await migrator.addColumn(
+          financialAllocations,
+          financialAllocations.fulfilledAmountMinorUnits,
         );
       }
     },
@@ -155,6 +204,7 @@ class AppDatabase extends _$AppDatabase {
           loans.remainingBalanceMinorUnits,
           loans.interestRateBasisPoints,
           loans.totalInterestMinorUnits,
+          loans.totalRepaymentMinorUnits,
           loans.endDate,
           loans.durationMonths,
           loans.paymentFrequency,

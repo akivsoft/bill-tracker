@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:bill_tracker/data/local/database/app_database.dart';
+import 'package:bill_tracker/data/local/backup/local_backup_service.dart';
 import 'package:bill_tracker/data/local/datasources/local_financial_data_source.dart';
 import 'package:bill_tracker/data/local/local_data_source.dart';
 import 'package:bill_tracker/features/transactions/data/repositories/local_financial_repository.dart';
 import 'package:bill_tracker/features/transactions/domain/repositories/financial_repository.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' show Provider;
 
 part 'app_providers.g.dart';
 
@@ -27,3 +29,8 @@ LocalFinancialDataSource localFinancialDataSource(Ref ref) =>
 @riverpod
 FinancialRepository financialRepository(Ref ref) =>
     LocalFinancialRepository(ref.watch(localFinancialDataSourceProvider));
+
+final Provider<LocalBackupService> localBackupServiceProvider =
+    Provider<LocalBackupService>(
+      (ref) => LocalBackupService(ref.watch(appDatabaseProvider)),
+    );

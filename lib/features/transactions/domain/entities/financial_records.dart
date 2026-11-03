@@ -140,6 +140,32 @@ final class BillEntry {
   final String? notes;
 }
 
+final class BillPaymentEntry {
+  const BillPaymentEntry({
+    required this.id,
+    required this.billId,
+    required this.accountId,
+    required this.amountMinorUnits,
+    required this.occurrenceKey,
+    required this.paidAt,
+    this.transactionId,
+    this.reversedAt,
+    this.notes,
+  });
+
+  final String id;
+  final String billId;
+  final String accountId;
+  final int amountMinorUnits;
+  final String occurrenceKey;
+  final DateTime paidAt;
+  final String? transactionId;
+  final DateTime? reversedAt;
+  final String? notes;
+
+  bool get isSkipped => notes?.startsWith('[skipped]') ?? false;
+}
+
 final class LoanEntry {
   const LoanEntry({
     required this.id,
@@ -147,6 +173,7 @@ final class LoanEntry {
     required this.providerName,
     required this.principalMinorUnits,
     required this.remainingBalanceMinorUnits,
+    this.totalRepaymentMinorUnits = 0,
     required this.currencyCode,
     required this.openedAt,
     required this.status,
@@ -162,6 +189,7 @@ final class LoanEntry {
     this.nextDueDate,
     this.paymentAccountId,
     this.notes,
+    this.archivedAt,
   });
 
   final String id;
@@ -170,6 +198,7 @@ final class LoanEntry {
   final String? providerId;
   final int principalMinorUnits;
   final int remainingBalanceMinorUnits;
+  final int totalRepaymentMinorUnits;
   final int interestRateBasisPoints;
   final int totalInterestMinorUnits;
   final String currencyCode;
@@ -184,6 +213,7 @@ final class LoanEntry {
   final String? paymentAccountId;
   final String status;
   final String? notes;
+  final DateTime? archivedAt;
 }
 
 final class LoanInstallmentEntry {
@@ -211,6 +241,30 @@ final class LoanInstallmentEntry {
   final DateTime? paidAt;
   final String? paymentAccountId;
   final String? transactionId;
+  final String? notes;
+}
+
+final class LoanPaymentEntry {
+  const LoanPaymentEntry({
+    required this.id,
+    required this.loanId,
+    required this.amountMinorUnits,
+    required this.paidAt,
+    required this.status,
+    this.installmentId,
+    this.accountId,
+    this.transactionId,
+    this.notes,
+  });
+
+  final String id;
+  final String loanId;
+  final String? installmentId;
+  final String? accountId;
+  final String? transactionId;
+  final int amountMinorUnits;
+  final DateTime paidAt;
+  final String status;
   final String? notes;
 }
 
@@ -261,6 +315,12 @@ final class PaydayScheduleEntry {
     required this.actualIncomeMinorUnits,
     required this.status,
     this.notes,
+    this.frequency = 'one_time',
+    this.currencyCode = 'PHP',
+    this.receivingAccountId,
+    this.incomeRecordId,
+    this.actualReceivedAt,
+    this.isActive = true,
   });
 
   final String id;
@@ -270,6 +330,12 @@ final class PaydayScheduleEntry {
   final int actualIncomeMinorUnits;
   final String status;
   final String? notes;
+  final String frequency;
+  final String currencyCode;
+  final String? receivingAccountId;
+  final String? incomeRecordId;
+  final DateTime? actualReceivedAt;
+  final bool isActive;
 }
 
 final class AllocationEntry {
@@ -282,7 +348,12 @@ final class AllocationEntry {
     this.expectedIncomeMinorUnits = 0,
     this.actualIncomeMinorUnits = 0,
     this.relatedBillId,
+    this.relatedDueDate,
     this.relatedInstallmentId,
+    this.relatedSavingsGoalId,
+    this.periodDate,
+    this.priority = 3,
+    this.fulfilledAmountMinorUnits = 0,
     this.notes,
   });
 
@@ -293,7 +364,12 @@ final class AllocationEntry {
   final int allocatedAmountMinorUnits;
   final String allocationCategory;
   final String? relatedBillId;
+  final DateTime? relatedDueDate;
   final String? relatedInstallmentId;
+  final String? relatedSavingsGoalId;
+  final DateTime? periodDate;
+  final int priority;
+  final int fulfilledAmountMinorUnits;
   final String status;
   final String? notes;
 }
