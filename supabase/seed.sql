@@ -1,0 +1,1 @@
+-- Intentionally empty: never seed sample financial records into user data.
