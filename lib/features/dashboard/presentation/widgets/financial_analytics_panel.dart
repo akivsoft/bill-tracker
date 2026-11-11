@@ -6,6 +6,7 @@ import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/features/bills/domain/services/bill_schedule_calculator.dart';
 import 'package:bill_tracker/features/dashboard/domain/services/financial_analytics.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
+import 'package:bill_tracker/features/dashboard/presentation/providers/dashboard_section_state_provider.dart';
 import 'package:bill_tracker/features/planner/domain/services/payday_schedule_calculator.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
@@ -196,6 +197,7 @@ class _FinancialAnalyticsPanelState
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: AppSpacing.small,
       children: <Widget>[
         Card(
           child: Padding(
@@ -401,51 +403,70 @@ class _FinancialAnalyticsPanelState
                   child: _accountBalancesChart(context, accounts),
                 ),
         ),
-        Wrap(
-          spacing: AppSpacing.small,
-          runSpacing: AppSpacing.small,
-          children: <Widget>[
-            _metric(
-              context,
-              'Outstanding loans',
-              outstandingLoans,
-              currency,
-              Icons.account_balance,
-              onTap: () => context.go(RouteNames.loansPath),
-            ),
-            _metric(
-              context,
-              'Credit card debt',
-              totalCardDebt,
-              currency,
-              Icons.credit_card,
-              onTap: () => context.go(RouteNames.walletsPath),
-              caption:
-                  'Available credit ${Money(totalAvailableCredit, currencyCode: currency).format()}',
-            ),
-            _metric(
-              context,
-              'Savings goals',
-              goalSaved,
-              currency,
-              Icons.savings,
-              onTap: () => context.go(RouteNames.moreModule('savings')),
-              caption:
-                  'of ${Money(goalTotal, currencyCode: currency).format()}',
-            ),
-            _metric(
-              context,
-              'Planned allocations',
-              plannedAllocations,
-              currency,
-              Icons.event_note,
-              onTap: () => context.go(RouteNames.moreModule('planner')),
-              caption: 'Forecast only',
-            ),
-          ],
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            const double gap = AppSpacing.small;
+            final int columns = constraints.maxWidth >= 700 ? 4 : 2;
+            final double tileWidth =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return GridView.count(
+              crossAxisCount: columns,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisSpacing: gap,
+              mainAxisSpacing: gap,
+              childAspectRatio: tileWidth / 148,
+              children: <Widget>[
+                _metric(
+                  context,
+                  'Outstanding loans',
+                  outstandingLoans,
+                  currency,
+                  Icons.account_balance,
+                  width: tileWidth,
+                  onTap: () => context.go(RouteNames.loansPath),
+                ),
+                _metric(
+                  context,
+                  'Credit card debt',
+                  totalCardDebt,
+                  currency,
+                  Icons.credit_card,
+                  width: tileWidth,
+                  onTap: () => context.go(RouteNames.walletsPath),
+                  caption:
+                      'Available credit ${Money(totalAvailableCredit, currencyCode: currency).format()}',
+                ),
+                _metric(
+                  context,
+                  'Savings goals',
+                  goalSaved,
+                  currency,
+                  Icons.savings,
+                  width: tileWidth,
+                  onTap: () => context.go(RouteNames.moreModule('savings')),
+                  caption:
+                      'of ${Money(goalTotal, currencyCode: currency).format()}',
+                ),
+                _metric(
+                  context,
+                  'Planned allocations',
+                  plannedAllocations,
+                  currency,
+                  Icons.event_note,
+                  width: tileWidth,
+                  onTap: () => context.go(RouteNames.moreModule('planner')),
+                  caption: 'Forecast only',
+                ),
+              ],
+            );
+          },
         ),
         _analyticsCard(
           context,
+          sectionId: 'loanRepayment',
+          collapsedSummary:
+              '${Money(repaid, currencyCode: currency).format()} confirmed · ${Money(outstandingLoans, currencyCode: currency).format()} outstanding',
           title: 'Loan repayment progress',
           subtitle: 'Confirmed repayments versus contractual amount',
           trailing: TextButton(
@@ -469,6 +490,9 @@ class _FinancialAnalyticsPanelState
         ),
         _analyticsCard(
           context,
+          sectionId: 'savingsProgress',
+          collapsedSummary:
+              '${Money(goalSaved, currencyCode: currency).format()} of ${Money(goalTotal, currencyCode: currency).format()} saved',
           title: 'Savings progress',
           subtitle: 'Confirmed goal balances versus targets',
           trailing: TextButton(
@@ -494,6 +518,10 @@ class _FinancialAnalyticsPanelState
         ),
         _analyticsCard(
           context,
+          sectionId: 'upcomingCommitments',
+          collapsedSummary: upcoming.isEmpty
+              ? 'No unpaid bills or installments'
+              : '${upcoming.length} open bills and installments',
           title: 'Upcoming commitments',
           subtitle: 'Bills and installments keep their existing due dates',
           trailing: TextButton(
@@ -506,38 +534,16 @@ class _FinancialAnalyticsPanelState
                 const _ChartEmpty(
                   message: 'No upcoming bill or loan installment found.',
                 ),
-              ...upcoming
-                  .take(5)
-                  .map(
-                    (item) => ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                        item.isLoan
-                            ? Icons.account_balance
-                            : Icons.receipt_long,
-                      ),
-                      title: Text(item.title),
-                      subtitle: Text(
-                        '${DateFormat.yMMMd().format(item.date)} · ${item.status}',
-                      ),
-                      trailing: Text(
-                        Money(
-                          item.amountMinorUnits,
-                          currencyCode: currency,
-                        ).format(),
-                      ),
-                      onTap: () => context.go(
-                        item.isLoan
-                            ? RouteNames.loansPath
-                            : RouteNames.billsPath,
-                      ),
-                    ),
-                  ),
+              ..._groupUpcomingObligations(context, upcoming, currency),
             ],
           ),
         ),
         _analyticsCard(
           context,
+          sectionId: 'nextPayday',
+          collapsedSummary: nextPaydays.isEmpty
+              ? 'No active payday schedule'
+              : '${nextPaydays.first.$1.name} · ${DateFormat.yMMMd().format(nextPaydays.first.$2)}',
           title: 'Next payday',
           subtitle: 'Expected income and remaining planned allocations',
           trailing: TextButton(
@@ -627,9 +633,10 @@ class _FinancialAnalyticsPanelState
     IconData icon, {
     VoidCallback? onTap,
     String? caption,
+    double? width,
   }) {
     final Widget content = SizedBox(
-      width: 158,
+      width: width ?? 158,
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -642,15 +649,27 @@ class _FinancialAnalyticsPanelState
                 color: Theme.of(context).colorScheme.primary,
               ),
               const SizedBox(height: 6),
-              Text(label, style: Theme.of(context).textTheme.bodySmall),
               Text(
-                Money(amount, currencyCode: currency).format(),
-                maxLines: 1,
+                label,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleSmall,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  Money(amount, currencyCode: currency).format(),
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
               ),
               if (caption != null)
-                Text(caption, style: Theme.of(context).textTheme.labelSmall),
+                Text(
+                  caption,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
             ],
           ),
         ),
@@ -954,30 +973,82 @@ class _FinancialAnalyticsPanelState
     required String subtitle,
     required Widget child,
     Widget? trailing,
-  }) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(AppSpacing.medium),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: Text(
-                  title,
-                  style: Theme.of(context).textTheme.titleMedium,
+    String? sectionId,
+    String? collapsedSummary,
+  }) {
+    final bool expanded = sectionId == null
+        ? true
+        : ref.watch(
+            dashboardSectionStateProvider.select(
+              (Map<String, bool> states) => states[sectionId] ?? true,
+            ),
+          );
+    void toggle() {
+      if (sectionId != null) {
+        ref.read(dashboardSectionStateProvider.notifier).toggle(sectionId);
+      }
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.medium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: InkWell(
+                    onTap: sectionId == null ? null : toggle,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                  ),
                 ),
+                ?trailing,
+                if (sectionId != null)
+                  IconButton(
+                    tooltip: expanded ? 'Collapse $title' : 'Expand $title',
+                    onPressed: toggle,
+                    icon: Icon(
+                      expanded ? Icons.expand_less : Icons.expand_more,
+                    ),
+                  ),
+              ],
+            ),
+            AnimatedSize(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeInOut,
+              alignment: Alignment.topCenter,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: expanded
+                    ? <Widget>[
+                        Text(
+                          subtitle,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                        const SizedBox(height: AppSpacing.small),
+                        child,
+                      ]
+                    : <Widget>[
+                        Text(
+                          collapsedSummary ?? subtitle,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
               ),
-              ?trailing,
-            ],
-          ),
-          Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-          const SizedBox(height: AppSpacing.small),
-          child,
-        ],
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 
   Widget _sectionTitle(BuildContext context, String title) =>
       Text(title, style: Theme.of(context).textTheme.titleMedium);
@@ -992,8 +1063,9 @@ class _FinancialAnalyticsPanelState
     required List<LoanInstallmentEntry> installments,
   }) {
     final DateTime now = DateTime.now();
-    final DateTime start = DateTime(now.year, now.month, now.day);
-    final DateTime end = start.add(const Duration(days: 45));
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime start = today.subtract(const Duration(days: 35));
+    final DateTime end = today.add(const Duration(days: 120));
     final List<_Obligation> result = <_Obligation>[];
     for (final BillEntry bill in bills.where(
       (item) => item.isActive && item.currencyCode == widget.currencyCode,
@@ -1029,28 +1101,98 @@ class _FinancialAnalyticsPanelState
       }
     }
     for (final LoanInstallmentEntry item in installments) {
-      if (item.status == 'paid' || item.status == 'settled') continue;
+      if (item.status == 'paid' ||
+          item.status == 'settled' ||
+          item.status == 'skipped' ||
+          item.status == 'cancelled' ||
+          item.paidMinorUnits >= item.scheduledMinorUnits) {
+        continue;
+      }
       if (item.dueDate.isBefore(start) || item.dueDate.isAfter(end)) continue;
       final LoanEntry? loan = loans
           .where((row) => row.id == item.loanId)
           .firstOrNull;
-      if (loan == null || loan.currencyCode != widget.currencyCode) continue;
+      if (loan == null ||
+          loan.status != 'active' ||
+          loan.currencyCode != widget.currencyCode) {
+        continue;
+      }
       result.add(
         _Obligation(
           title: loan.name,
           date: item.dueDate,
           amountMinorUnits: (item.scheduledMinorUnits - item.paidMinorUnits)
               .clamp(0, item.scheduledMinorUnits),
-          status: item.status == 'partial'
-              ? 'Partially paid'
-              : item.dueDate.isBefore(start)
+          status: item.dueDate.isBefore(today)
               ? 'Overdue'
+              : item.status == 'partial'
+              ? 'Partially paid'
               : 'Upcoming',
           isLoan: true,
         ),
       );
     }
     return result..sort((a, b) => a.date.compareTo(b.date));
+  }
+
+  List<Widget> _groupUpcomingObligations(
+    BuildContext context,
+    List<_Obligation> obligations,
+    String currency,
+  ) {
+    final Map<DateTime, List<_Obligation>> byMonth =
+        <DateTime, List<_Obligation>>{};
+    for (final _Obligation obligation in obligations) {
+      final DateTime month = DateTime(
+        obligation.date.year,
+        obligation.date.month,
+      );
+      byMonth.putIfAbsent(month, () => <_Obligation>[]).add(obligation);
+    }
+    final List<DateTime> months = byMonth.keys.toList()..sort();
+    return months.map((DateTime month) {
+      final List<_Obligation> items = byMonth[month]!;
+      final int installmentCount = items
+          .where((_Obligation item) => item.isLoan)
+          .length;
+      final int billCount = items.length - installmentCount;
+      return Card(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        child: ExpansionTile(
+          title: Text(DateFormat.yMMMM().format(month)),
+          subtitle: Text(
+            '$installmentCount active loan installments · $billCount open bills',
+          ),
+          children: items
+              .map(
+                (_Obligation item) => ListTile(
+                  dense: true,
+                  leading: Icon(
+                    item.isLoan
+                        ? Icons.account_balance
+                        : item.status == 'overdue'
+                        ? Icons.warning_amber_rounded
+                        : Icons.receipt_long,
+                  ),
+                  title: Text(item.title),
+                  subtitle: Text(
+                    '${DateFormat.yMMMd().format(item.date)} · ${item.status}',
+                  ),
+                  trailing: Text(
+                    Money(
+                      item.amountMinorUnits,
+                      currencyCode: currency,
+                    ).format(),
+                  ),
+                  onTap: () => context.go(
+                    item.isLoan ? RouteNames.loansPath : RouteNames.billsPath,
+                  ),
+                ),
+              )
+              .toList(),
+        ),
+      );
+    }).toList();
   }
 
   DateTime? _nextPayday(

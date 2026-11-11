@@ -46,6 +46,13 @@ final StreamProvider<List<CategoryEntry>> billCategoriesProvider =
           .watchCategories(categoryType: 'bill'),
     );
 
+final StreamProvider<List<CategoryEntry>>
+billCategoriesIncludingArchivedProvider = StreamProvider<List<CategoryEntry>>(
+  (Ref ref) => ref
+      .watch(financialRepositoryProvider)
+      .watchCategories(categoryType: 'bill', includeArchived: true),
+);
+
 final StreamProvider<List<FinancialAccount>> walletManagementAccountsProvider =
     StreamProvider<List<FinancialAccount>>(
       (Ref ref) =>

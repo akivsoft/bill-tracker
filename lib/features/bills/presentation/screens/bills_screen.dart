@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
@@ -8,6 +9,7 @@ import 'package:bill_tracker/core/widgets/app_loading.dart';
 import 'package:bill_tracker/core/widgets/empty_state.dart';
 import 'package:bill_tracker/core/widgets/summary_card.dart';
 import 'package:bill_tracker/features/bills/domain/services/bill_schedule_calculator.dart';
+import 'package:bill_tracker/features/bills/domain/services/payment_range_formatter.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
 import 'package:bill_tracker/features/settings/presentation/providers/user_preferences_provider.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -19,6 +21,7 @@ import 'package:bill_tracker/shared/providers/app_providers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 class BillsScreen extends ConsumerStatefulWidget {
@@ -26,6 +29,91 @@ class BillsScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<BillsScreen> createState() => _BillsScreenState();
+}
+
+class _NewBillCategoryDialog extends StatefulWidget {
+  const _NewBillCategoryDialog({required this.existing, required this.onSave});
+
+  final List<CategoryEntry> existing;
+  final Future<CategoryEntry> Function(String name) onSave;
+
+  @override
+  State<_NewBillCategoryDialog> createState() => _NewBillCategoryDialogState();
+}
+
+class _NewBillCategoryDialogState extends State<_NewBillCategoryDialog> {
+  final TextEditingController _name = TextEditingController();
+  final GlobalKey<FormState> _form = GlobalKey<FormState>();
+  bool _saving = false;
+  String? _saveError;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('New bill category'),
+    content: SingleChildScrollView(
+      child: Form(
+        key: _form,
+        child: TextFormField(
+          controller: _name,
+          maxLength: 80,
+          autofocus: true,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          decoration: InputDecoration(
+            labelText: 'Category name',
+            errorText: _saveError,
+          ),
+          validator: (String? value) {
+            final String normalized = value?.trim() ?? '';
+            if (normalized.isEmpty) return 'Please enter a category name.';
+            if (widget.existing.any(
+              (CategoryEntry item) =>
+                  item.name.trim().toLowerCase() == normalized.toLowerCase(),
+            )) {
+              return 'This category already exists.';
+            }
+            return null;
+          },
+        ),
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: _saving ? null : () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: _saving ? null : _save,
+        child: Text(_saving ? 'Saving…' : 'Save'),
+      ),
+    ],
+  );
+
+  Future<void> _save() async {
+    if (!(_form.currentState?.validate() ?? false)) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      final CategoryEntry created = await widget.onSave(_name.text.trim());
+      if (mounted) {
+        Navigator.pop(context, created);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _saveError = 'Could not save category. Please try again.';
+        });
+      }
+    }
+  }
 }
 
 class _BillsScreenState extends ConsumerState<BillsScreen> {
@@ -48,6 +136,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
   String _statusFilter = 'all';
   String _period = 'month';
   DateTimeRange? _customRange;
+  final List<DateTimeRange> _savedRanges = <DateTimeRange>[];
   bool _seedStarted = false;
 
   @override
@@ -57,10 +146,58 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadSavedRanges();
+  }
+
+  Future<File> _rangesFile() async => File(
+    '${(await getApplicationSupportDirectory()).path}${Platform.pathSeparator}payment_overview_ranges.json',
+  );
+
+  Future<void> _loadSavedRanges() async {
+    try {
+      final File file = await _rangesFile();
+      if (!await file.exists()) return;
+      final List<dynamic> entries =
+          jsonDecode(await file.readAsString()) as List<dynamic>;
+      final List<DateTimeRange> ranges = entries.map((dynamic entry) {
+        final Map<String, dynamic> item = entry as Map<String, dynamic>;
+        return DateTimeRange(
+          start: DateTime.parse(item['start'] as String),
+          end: DateTime.parse(item['end'] as String),
+        );
+      }).toList();
+      if (mounted) setState(() => _savedRanges.addAll(ranges));
+    } catch (_) {
+      // A malformed local preference must not prevent opening Bills.
+    }
+  }
+
+  Future<void> _persistSavedRanges() async {
+    final File file = await _rangesFile();
+    await file.writeAsString(
+      jsonEncode(
+        _savedRanges
+            .map(
+              (DateTimeRange range) => <String, String>{
+                'start': range.start.toIso8601String(),
+                'end': range.end.toIso8601String(),
+              },
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final billsValue = ref.watch(billsOverviewProvider);
     final paymentsValue = ref.watch(billPaymentsOverviewProvider);
     final categoriesValue = ref.watch(billCategoriesProvider);
+    final archivedCategoriesValue = ref.watch(
+      billCategoriesIncludingArchivedProvider,
+    );
     final accountsValue = ref.watch(walletManagementAccountsProvider);
     final balancesValue = ref.watch(accountBalancesProvider);
     final transactionsValue = ref.watch(recentTransactionsProvider);
@@ -122,7 +259,8 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
         )
         .toList(growable: false);
     final Map<String, String> categoryNames = <String, String>{
-      for (final CategoryEntry category in categories)
+      for (final CategoryEntry category
+          in archivedCategoriesValue.asData?.value ?? categories)
         category.id: category.name,
     };
     final String query = _search.text.trim().toLowerCase();
@@ -183,7 +321,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
       currencyCode: currency,
     );
     final BillAllocationForecast forecast = BillScheduleCalculator.forecast(
-      occurrences: occurrences,
+      occurrences: periodOccurrences,
       payments: payments,
       actualAvailableMinorUnits: actual,
     );
@@ -192,11 +330,6 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
       appBar: AppBar(
         title: const Text('Bills'),
         actions: <Widget>[
-          IconButton(
-            tooltip: 'Add bill category',
-            onPressed: _addCategory,
-            icon: const Icon(Icons.create_new_folder_outlined),
-          ),
           IconButton(
             tooltip: 'Add bill',
             onPressed: () => _editBill(
@@ -248,13 +381,20 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   ),
                   const SizedBox(height: AppSpacing.medium),
                   DropdownButton<String>(
+                    isExpanded: true,
                     value: _period,
-                    items: const <DropdownMenuItem<String>>[
+                    items: <DropdownMenuItem<String>>[
                       DropdownMenuItem(value: 'day', child: Text('Today')),
                       DropdownMenuItem(value: 'week', child: Text('This week')),
                       DropdownMenuItem(
                         value: 'month',
                         child: Text('This month'),
+                      ),
+                      ..._savedRanges.asMap().entries.map(
+                        (entry) => DropdownMenuItem(
+                          value: 'saved:${entry.key}',
+                          child: Text(PaymentRangeFormatter.label(entry.value)),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'custom',
@@ -262,6 +402,14 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                       ),
                     ],
                     onChanged: (String? value) async {
+                      if (value != null && value.startsWith('saved:')) {
+                        final int index = int.parse(value.substring(6));
+                        setState(() {
+                          _period = value;
+                          _customRange = _savedRanges[index];
+                        });
+                        return;
+                      }
                       if (value == 'custom') {
                         final DateTimeRange? picked = await showDateRangePicker(
                           context: context,
@@ -270,8 +418,45 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                           initialDateRange: _customRange,
                         );
                         if (picked != null) {
-                          setState(() => _customRange = picked);
+                          final DateTimeRange normalized = DateTimeRange(
+                            start: DateTime(
+                              picked.start.year,
+                              picked.start.month,
+                              picked.start.day,
+                            ),
+                            end: DateTime(
+                              picked.end.year,
+                              picked.end.month,
+                              picked.end.day,
+                            ),
+                          );
+                          final bool duplicate = _savedRanges.any(
+                            (DateTimeRange old) =>
+                                old.start == normalized.start &&
+                                old.end == normalized.end,
+                          );
+                          if (!duplicate) {
+                            setState(() => _savedRanges.add(normalized));
+                            try {
+                              await _persistSavedRanges();
+                            } catch (_) {
+                              if (mounted) {
+                                _toast(
+                                  'The date range could not be saved on this device.',
+                                );
+                              }
+                            }
+                          }
+                          if (!mounted) return;
+                          setState(() {
+                            _customRange = normalized;
+                            _period = duplicate
+                                ? 'saved:${_savedRanges.indexWhere((DateTimeRange old) => old.start == normalized.start && old.end == normalized.end)}'
+                                : 'saved:${_savedRanges.length - 1}';
+                          });
+                          return;
                         }
+                        return;
                       }
                       if (value != null) setState(() => _period = value);
                     },
@@ -281,14 +466,16 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                         (BuildContext context, BoxConstraints constraints) {
                           final int columns = constraints.maxWidth > 550
                               ? 3
-                              : 2;
+                              : constraints.maxWidth > 380
+                              ? 2
+                              : 1;
                           return GridView.count(
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
                             crossAxisCount: columns,
                             crossAxisSpacing: AppSpacing.small,
                             mainAxisSpacing: AppSpacing.small,
-                            childAspectRatio: 1.55,
+                            childAspectRatio: columns == 1 ? 2.25 : 1.3,
                             children: <Widget>[
                               SummaryCard(
                                 label: 'Upcoming bills',
@@ -346,26 +533,34 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                           style: Theme.of(context).textTheme.titleMedium,
                         ),
                         const SizedBox(height: AppSpacing.small),
-                        _moneyLine(
-                          'Upcoming obligations',
+                        _forecastLine(
+                          'Bills to prepare for',
+                          'Upcoming unpaid bills and obligations in this forecast.',
                           forecast.upcomingObligationsMinorUnits,
                           currency,
                         ),
-                        _moneyLine(
-                          'Allocated',
+                        _forecastLine(
+                          'Money set aside',
+                          'Income planned for these obligations; it is not a confirmed payment.',
                           forecast.allocatedMinorUnits,
                           currency,
                         ),
-                        _moneyLine(
-                          'Unallocated',
+                        _forecastLine(
+                          'Still needed',
+                          'The amount not yet covered by planned allocations.',
                           forecast.unallocatedMinorUnits,
                           currency,
                         ),
-                        _moneyLine(
-                          'Projected after bills',
+                        _forecastLine(
+                          'Money left after bills',
+                          'Projected remaining money after upcoming bills.',
                           forecast.projectedRemainingMinorUnits,
                           currency,
                         ),
+                        if (forecast.upcomingObligationsMinorUnits == 0)
+                          const Text(
+                            'No unpaid obligations in this forecast period.',
+                          ),
                         Text(
                           'Allocations are plans only; they do not move wallet money.',
                           style: Theme.of(context).textTheme.bodySmall,
@@ -385,6 +580,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   const SizedBox(height: AppSpacing.small),
                   DropdownButtonFormField<String>(
                     initialValue: _statusFilter,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Payment status',
                     ),
@@ -562,7 +758,10 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
   }
 
   DateTimeRange _selectedRange(DateTime now) {
-    if (_period == 'custom' && _customRange != null) return _customRange!;
+    if ((_period == 'custom' || _period.startsWith('saved:')) &&
+        _customRange != null) {
+      return _customRange!;
+    }
     final DateTime today = DateTime(now.year, now.month, now.day);
     final DateTime start = switch (_period) {
       'day' => today,
@@ -576,6 +775,22 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     };
     return DateTimeRange(start: start, end: end);
   }
+
+  Widget _forecastLine(
+    String label,
+    String explanation,
+    int amount,
+    String currency,
+  ) => Padding(
+    padding: const EdgeInsets.only(bottom: AppSpacing.small),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _moneyLine(label, amount, currency),
+        Text(explanation, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    ),
+  );
 
   Future<void> _seedCategories(List<CategoryEntry> existing) async {
     final Set<String> present = existing
@@ -601,17 +816,50 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     }
   }
 
-  Future<void> _addCategory() async {
-    final TextEditingController name = TextEditingController();
-    final bool? save = await showDialog<bool>(
+  Stream<List<CategoryEntry>> _categoryStream() => ref
+      .read(financialRepositoryProvider)
+      .watchCategories(categoryType: 'bill');
+
+  Future<CategoryEntry?> _addCategory([
+    List<CategoryEntry> existing = const <CategoryEntry>[],
+  ]) => showDialog<CategoryEntry>(
+    context: context,
+    builder: (BuildContext context) => _NewBillCategoryDialog(
+      existing: existing,
+      onSave: (String name) async {
+        final String id = await ref
+            .read(financialRepositoryProvider)
+            .createCategory(
+              CreateCategoryInput(name: name, categoryType: 'bill'),
+            );
+        ref.invalidate(billCategoriesProvider);
+        ref.invalidate(billCategoriesIncludingArchivedProvider);
+        return CategoryEntry(
+          id: id,
+          name: name,
+          categoryType: 'bill',
+          isDefault: false,
+        );
+      },
+    ),
+  );
+
+  Future<bool> _removeCategory(
+    CategoryEntry category,
+    List<BillEntry> bills,
+  ) async {
+    if (category.isDefault) return false;
+    final bool used = bills.any(
+      (BillEntry bill) => bill.categoryId == category.id,
+    );
+    final bool? confirmed = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
-        title: const Text('New bill category'),
-        content: TextField(
-          controller: name,
-          maxLength: 80,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Category name'),
+        title: const Text('Remove custom category?'),
+        content: Text(
+          used
+              ? 'Bills already using “${category.name}” will keep this category in their history. The category will no longer be available for new bills.'
+              : 'Remove “${category.name}” from your bill categories?',
         ),
         actions: <Widget>[
           TextButton(
@@ -619,25 +867,22 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.pop(context, name.text.trim().isNotEmpty),
-            child: const Text('Save'),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
           ),
         ],
       ),
     );
-    if (save == true) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .createCategory(
-              CreateCategoryInput(name: name.text.trim(), categoryType: 'bill'),
-            );
-      } catch (error) {
-        _toast('Could not add category: $error');
-      }
+    if (confirmed != true || !mounted) return false;
+    try {
+      await ref.read(financialRepositoryProvider).archiveCategory(category.id);
+      ref.invalidate(billCategoriesProvider);
+      ref.invalidate(billCategoriesIncludingArchivedProvider);
+      return true;
+    } catch (error) {
+      _toast('Could not remove category: $error');
+      return false;
     }
-    name.dispose();
   }
 
   Future<void> _editBill(
@@ -681,12 +926,218 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     String? categoryId =
         (bill ?? initial)?.categoryId ??
         (categories.isEmpty ? null : categories.first.id);
+    final List<CategoryEntry> formCategories = List<CategoryEntry>.of(
+      categories,
+    );
+    String? categoryNotice;
     String? accountId = (bill ?? initial)?.paymentAccountId;
     bool allocation = (bill ?? initial)?.automaticAllocation ?? false;
+    
+Future<void> selectCategory(
+  BuildContext dialogContext,
+  StateSetter setDialogState,
+) async {
+  final Set<String> removedCategoryIds = <String>{};
+  final Map<String, CategoryEntry> createdInForm =
+      <String, CategoryEntry>{};
+
+  final Stream<List<CategoryEntry>> categoriesStream =
+      _categoryStream();
+
+  final String? selected = await showDialog<String>(
+    context: context,
+    useRootNavigator: true,
+    builder: (BuildContext pickerContext) {
+      return StatefulBuilder(
+        builder: (BuildContext context, StateSetter setPickerState) {
+          return AlertDialog(
+            title: const Text('Choose bill category'),
+            content: SizedBox(
+              width: 400,
+              height: MediaQuery.sizeOf(context).height * 0.45,
+              child: StreamBuilder<List<CategoryEntry>>(
+                stream: categoriesStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('Could not load categories.'),
+                          TextButton(
+                            onPressed: () {
+                              setPickerState(() {});
+                            },
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final Map<String, CategoryEntry> categoryMap = {
+                    for (final item
+                        in (snapshot.data ?? formCategories))
+                      if (!item.isArchived &&
+                          !removedCategoryIds.contains(item.id))
+                        item.id: item,
+                    for (final item in createdInForm.values)
+                      if (!removedCategoryIds.contains(item.id))
+                        item.id: item,
+                  };
+
+                  final List<CategoryEntry> items =
+                      categoryMap.values.toList()
+                        ..sort((a, b) {
+                          if (a.isDefault != b.isDefault) {
+                            return a.isDefault ? 1 : -1;
+                          }
+                          return a.name.toLowerCase().compareTo(
+                            b.name.toLowerCase(),
+                          );
+                        });
+
+                  if (snapshot.connectionState ==
+                          ConnectionState.waiting &&
+                      items.isEmpty) {
+                    return const Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  }
+
+                  return ListView(
+                    children: [
+                      ListTile(
+                        leading: Icon(
+                          categoryId == null
+                              ? Icons.check_circle
+                              : Icons.circle_outlined,
+                        ),
+                        title: const Text('Other / none'),
+                        selected: categoryId == null,
+                        onTap: () =>
+                            Navigator.pop(pickerContext, ''),
+                      ),
+                      if (items.isEmpty)
+                        const ListTile(
+                          title: Text('No bill categories available.'),
+                        ),
+                      ...items.map((item) {
+                        final bool isSelected = categoryId == item.id;
+
+                        return ListTile(
+                          leading: Icon(
+                            isSelected
+                                ? Icons.check_circle
+                                : Icons.circle_outlined,
+                          ),
+                          title: Text(item.name),
+                          selected: isSelected,
+                          trailing: item.isDefault
+                              ? null
+                              : TextButton(
+                                  onPressed: () async {
+                                    final bool removed =
+                                        await _removeCategory(item, bills);
+
+                                    if (!removed ||
+                                        !pickerContext.mounted) {
+                                      return;
+                                    }
+
+                                    removedCategoryIds.add(item.id);
+                                    createdInForm.remove(item.id);
+
+                                    formCategories.removeWhere(
+                                      (category) =>
+                                          category.id == item.id,
+                                    );
+
+                                    if (categoryId == item.id) {
+                                      categoryId = null;
+                                      setDialogState(() {});
+                                    }
+
+                                    setPickerState(() {});
+                                  },
+                                  child: const Text('Remove'),
+                                ),
+                          onTap: () =>
+                              Navigator.pop(pickerContext, item.id),
+                        );
+                      }),
+                      const Divider(),
+                      ListTile(
+                        leading: const Icon(Icons.add_rounded),
+                        title: const Text('Create bill category'),
+                        onTap: () async {
+                          final created = await _addCategory(
+                            formCategories,
+                          );
+
+                          if (created == null ||
+                              !pickerContext.mounted) {
+                            return;
+                          }
+
+                          createdInForm[created.id] = created;
+
+                          if (!formCategories.any(
+                            (item) => item.id == created.id,
+                          )) {
+                            formCategories.add(created);
+                          }
+
+                          setDialogState(() {
+                            categoryId = created.id;
+                            categoryNotice = null;
+                          });
+
+                          Navigator.pop(pickerContext, created.id);
+                        },
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(pickerContext),
+                child: const Text('Cancel'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+
+  if (!mounted || selected == null) return;
+
+  final CategoryEntry? selectedCategory = formCategories
+      .where((item) => item.id == selected)
+      .firstOrNull;
+
+  setDialogState(() {
+    if (selectedCategory != null &&
+        !formCategories.any(
+          (item) => item.id == selectedCategory.id,
+        )) {
+      formCategories.add(selectedCategory);
+    }
+
+    categoryId = selected.isEmpty ? null : selected;
+    categoryNotice = null;
+  });
+}
+
     final form = GlobalKey<FormState>();
     final bool? save = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
+  context: context,
+  useRootNavigator: true,
+  barrierDismissible: true,
+  builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
           title: Text(
             bill == null
@@ -700,6 +1151,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                 key: form,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  spacing: AppSpacing.small,
                   children: <Widget>[
                     TextFormField(
                       controller: name,
@@ -727,26 +1179,54 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                             : null;
                       },
                     ),
-                    DropdownButtonFormField<String?>(
-                      initialValue: categoryId,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: <DropdownMenuItem<String?>>[
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('Other / none'),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () =>
+                          selectCategory(dialogContext, setDialogState),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
                         ),
-                        ...categories.map(
-                          (CategoryEntry item) => DropdownMenuItem(
-                            value: item.id,
-                            child: Text(item.name),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  formCategories
+                                          .where(
+                                            (CategoryEntry item) =>
+                                                item.id == categoryId,
+                                          )
+                                          .map(
+                                            (CategoryEntry item) => item.name,
+                                          )
+                                          .firstOrNull ??
+                                      'Other / none',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down),
+                            ],
                           ),
                         ),
-                      ],
-                      onChanged: (String? value) =>
-                          setDialogState(() => categoryId = value),
+                      ),
                     ),
+                    if (categoryNotice != null)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          categoryNotice!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    
                     DropdownButtonFormField<String>(
                       initialValue: frequency,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'Frequency'),
                       items:
                           const <String>[
@@ -784,7 +1264,10 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                               : null;
                         },
                       ),
-                    TextButton.icon(
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(48),
+                      ),
                       onPressed: () async {
                         final DateTime? picked = await showDatePicker(
                           context: context,
@@ -801,6 +1284,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                     ),
                     DropdownButtonFormField<String?>(
                       initialValue: accountId,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Suggested payment account',
                       ),
@@ -819,7 +1303,12 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                             .map(
                               (FinancialAccount item) => DropdownMenuItem(
                                 value: item.id,
-                                child: Text(item.name),
+                                child: Text(
+                                  item.provider == null ||
+                                          item.provider!.trim().isEmpty
+                                      ? item.name
+                                      : '${item.name} — ${item.provider!.trim()}',
+                                ),
                               ),
                             ),
                       ],
@@ -840,6 +1329,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: reminder,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Reminder preference',
                       ),
@@ -867,7 +1357,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                     SwitchListTile.adaptive(
                       contentPadding: EdgeInsets.zero,
                       value: allocation,
-                      title: const Text('Allocate full remaining bill amount'),
+                      title: const Text('Set Aside'),
                       subtitle: const Text(
                         'Forecast only; does not reserve or move wallet money.',
                       ),
@@ -903,6 +1393,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
         ),
       ),
     );
+    
     if (save == true && mounted) {
       final String savedFrequency = frequency == 'custom'
           ? 'custom:${int.parse(customDays.text)}'
@@ -1029,6 +1520,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   ),
                   DropdownButtonFormField<String>(
                     initialValue: accountId,
+                    isExpanded: true,
                     decoration: const InputDecoration(
                       labelText: 'Payment account',
                     ),

@@ -298,12 +298,14 @@ final class CategoryEntry {
     required this.name,
     required this.categoryType,
     required this.isDefault,
+    this.isArchived = false,
   });
 
   final String id;
   final String name;
   final String categoryType;
   final bool isDefault;
+  final bool isArchived;
 }
 
 final class PaydayScheduleEntry {

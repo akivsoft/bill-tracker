@@ -103,6 +103,33 @@ void main() {
       database.financialAccounts,
     )..where((row) => row.id.equals(id))).getSingle()).currentBalanceMinorUnits;
 
+    test('archived bill categories preserve existing bill history', () async {
+      final String categoryId = await dataSource.createCategory(
+        CreateCategoryInput(name: 'Utilities', categoryType: 'bill'),
+      );
+      final String billId = await dataSource.createBill(
+        CreateBillInput(
+          name: 'Electricity',
+          amountMinorUnits: php1000,
+          dueDate: now,
+          categoryId: categoryId,
+        ),
+      );
+
+      await dataSource.archiveCategory(categoryId);
+
+      final bill = await (database.select(
+        database.bills,
+      )..where((row) => row.id.equals(billId))).getSingle();
+      final archived = await (database.select(
+        database.categories,
+      )..where((row) => row.id.equals(categoryId))).getSingle();
+      expect(bill.categoryId, categoryId);
+      expect(archived.name, 'Utilities');
+      expect(archived.archivedAt, isNotNull);
+      await expectLater(dataSource.archiveCategory(categoryId), completes);
+    });
+
     test(
       'transfer atomically debits and credits without changing total cash',
       () async {

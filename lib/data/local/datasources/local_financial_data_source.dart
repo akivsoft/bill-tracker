@@ -402,12 +402,20 @@ class LocalFinancialDataSource {
                 .toList(growable: false),
           );
 
-  Stream<List<CategoryEntry>> watchCategories({String? categoryType}) {
-    final query = _database.select(_database.categories)
-      ..where((Categories row) => row.archivedAt.isNull());
+  Stream<List<CategoryEntry>> watchCategories({
+    String? categoryType,
+    bool includeArchived = false,
+  }) {
+    final query = _database.select(_database.categories);
+    if (!includeArchived) {
+      query.where((Categories row) => row.archivedAt.isNull());
+    }
     if (categoryType != null) {
       query.where((Categories row) => row.categoryType.equals(categoryType));
     }
+    query.orderBy(<OrderingTerm Function(Categories)>[
+      (Categories row) => OrderingTerm.asc(row.name),
+    ]);
     return query.watch().map(
       (List<CategoryRecord> rows) => rows
           .map(
@@ -416,6 +424,7 @@ class LocalFinancialDataSource {
               name: row.name,
               categoryType: row.categoryType,
               isDefault: row.isDefault,
+              isArchived: row.archivedAt != null,
             ),
           )
           .toList(growable: false),
@@ -973,6 +982,31 @@ class LocalFinancialDataSource {
       });
     });
     return id;
+  }
+
+  Future<void> archiveCategory(String categoryId) async {
+    final CategoryRecord? category = await (_database.select(
+      _database.categories,
+    )..where((Categories row) => row.id.equals(categoryId))).getSingleOrNull();
+    if (category == null) return;
+    if (category.isDefault) {
+      throw StateError('Built-in categories cannot be removed.');
+    }
+    final DateTime now = _now();
+    await _database.transaction(() async {
+      await (_database.update(
+        _database.categories,
+      )..where((Categories row) => row.id.equals(categoryId))).write(
+        CategoriesCompanion(
+          archivedAt: Value<DateTime?>(now),
+          updatedAt: Value<DateTime>(now),
+        ),
+      );
+      await _enqueue('categories', categoryId, <String, Object?>{
+        'id': categoryId,
+        'archived_at': now.toIso8601String(),
+      });
+    });
   }
 
   Future<String> createIncome(CreateIncomeInput input) async {

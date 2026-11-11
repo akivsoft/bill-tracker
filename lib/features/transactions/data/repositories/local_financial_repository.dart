@@ -30,8 +30,9 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.watchTransactions();
 
   @override
-  Stream<List<FinancialTransactionView>> watchRecentTransactions({int limit = 5}) =>
-      _localDataSource.watchRecentTransactions(limit: limit);
+  Stream<List<FinancialTransactionView>> watchRecentTransactions({
+    int limit = 5,
+  }) => _localDataSource.watchRecentTransactions(limit: limit);
 
   @override
   Stream<List<FinancialTransactionView>> watchTransactionsInRange({
@@ -83,8 +84,13 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.watchSavingsGoals();
 
   @override
-  Stream<List<CategoryEntry>> watchCategories({String? categoryType}) =>
-      _localDataSource.watchCategories(categoryType: categoryType);
+  Stream<List<CategoryEntry>> watchCategories({
+    String? categoryType,
+    bool includeArchived = false,
+  }) => _localDataSource.watchCategories(
+    categoryType: categoryType,
+    includeArchived: includeArchived,
+  );
 
   @override
   Stream<List<PaydayScheduleEntry>> watchPaydaySchedules() =>
@@ -121,6 +127,10 @@ final class LocalFinancialRepository implements FinancialRepository {
   @override
   Future<String> createCategory(CreateCategoryInput input) =>
       _localDataSource.createCategory(input);
+
+  @override
+  Future<void> archiveCategory(String categoryId) =>
+      _localDataSource.archiveCategory(categoryId);
 
   @override
   Future<String> createIncome(CreateIncomeInput input) =>

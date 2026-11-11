@@ -5,9 +5,9 @@ import 'package:bill_tracker/core/widgets/account_card.dart';
 import 'package:bill_tracker/core/widgets/app_card.dart';
 import 'package:bill_tracker/core/widgets/app_loading.dart';
 import 'package:bill_tracker/core/widgets/empty_state.dart';
-import 'package:bill_tracker/core/widgets/section_header.dart';
 import 'package:bill_tracker/core/widgets/summary_card.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
+import 'package:bill_tracker/features/dashboard/presentation/providers/dashboard_section_state_provider.dart';
 import 'package:bill_tracker/features/dashboard/presentation/widgets/financial_analytics_panel.dart';
 import 'package:bill_tracker/features/settings/domain/entities/user_preferences.dart';
 import 'package:bill_tracker/features/settings/presentation/providers/user_preferences_provider.dart';
@@ -37,6 +37,17 @@ class HomeScreen extends ConsumerWidget {
     final AsyncValue<List<FinancialTransactionView>> transactions = ref.watch(
       dashboardRecentTransactionsProvider,
     );
+    final Map<String, bool> sectionStates = ref.watch(
+      dashboardSectionStateProvider,
+    );
+    final bool accountsExpanded = sectionStates['yourAccounts'] ?? true;
+    final bool activityExpanded = sectionStates['recentActivity'] ?? true;
+    final int accountCount =
+        accounts.asData?.value
+            .where((FinancialAccount item) => item.isActive)
+            .length ??
+        0;
+    final int activityCount = transactions.asData?.value.length ?? 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -103,16 +114,18 @@ class HomeScreen extends ConsumerWidget {
                   LayoutBuilder(
                     builder:
                         (BuildContext context, BoxConstraints constraints) {
-                          final int columns = constraints.maxWidth > 560
-                              ? 3
-                              : 1;
+                          const double gap = AppSpacing.small;
+                          const int columns = 3;
+                          final double tileWidth =
+                              (constraints.maxWidth - gap * (columns - 1)) /
+                              columns;
                           return GridView.count(
                             crossAxisCount: columns,
                             shrinkWrap: true,
                             physics: const NeverScrollableScrollPhysics(),
-                            crossAxisSpacing: AppSpacing.medium,
-                            mainAxisSpacing: AppSpacing.medium,
-                            childAspectRatio: columns == 1 ? 2.6 : 1.35,
+                            crossAxisSpacing: gap,
+                            mainAxisSpacing: gap,
+                            childAspectRatio: tileWidth / 112,
                             children: <Widget>[
                               _QuickSummary(
                                 value: bills.when(
@@ -169,118 +182,166 @@ class HomeScreen extends ConsumerWidget {
                         },
                   ),
                   const SizedBox(height: AppSpacing.large),
-                  SectionHeader(
+                  _sectionHeader(
+                    context,
+                    ref,
+                    sectionId: 'yourAccounts',
                     title: 'Your accounts',
+                    summary: '$accountCount active accounts',
                     actionLabel: 'All wallets',
                     onAction: () => context.go(RouteNames.walletsPath),
+                    expanded: accountsExpanded,
                   ),
-                  const SizedBox(height: AppSpacing.small),
-                  accounts.when(
-                    loading: () => const AppLoading(label: 'Loading accounts'),
-                    error: (Object error, StackTrace stackTrace) =>
-                        _InlineError(
-                          message: 'Accounts could not be loaded.',
-                          onRetry: () =>
-                              ref.invalidate(financialAccountsProvider),
-                        ),
-                    data: (List<FinancialAccount> values) {
-                      final List<FinancialAccount> active = values
-                          .where((FinancialAccount account) => account.isActive)
-                          .take(2)
-                          .toList(growable: false);
-                      if (active.isEmpty) {
-                        return AppCard(
-                          child: EmptyState(
-                            icon: Icons.wallet_outlined,
-                            title: 'Start with an account',
-                            message:
-                                'Add a cash, bank, or e-wallet balance to see your available money.',
-                            action: TextButton.icon(
-                              onPressed: () =>
-                                  context.go(RouteNames.walletsPath),
-                              icon: const Icon(Icons.add_rounded),
-                              label: const Text('Open wallets'),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.topCenter,
+                    child: accountsExpanded
+                        ? Padding(
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.small,
                             ),
-                          ),
-                        );
-                      }
-                      return Column(
-                        children: active
-                            .map(
-                              (FinancialAccount account) => Padding(
-                                padding: const EdgeInsets.only(
-                                  bottom: AppSpacing.small,
-                                ),
-                                child: AccountCard(account: account),
-                              ),
-                            )
-                            .toList(growable: false),
-                      );
-                    },
+                            child: accounts.when(
+                              loading: () =>
+                                  const AppLoading(label: 'Loading accounts'),
+                              error: (Object error, StackTrace stackTrace) =>
+                                  _InlineError(
+                                    message: 'Accounts could not be loaded.',
+                                    onRetry: () => ref.invalidate(
+                                      financialAccountsProvider,
+                                    ),
+                                  ),
+                              data: (List<FinancialAccount> values) {
+                                final List<FinancialAccount> active = values
+                                    .where(
+                                      (FinancialAccount account) =>
+                                          account.isActive,
+                                    )
+                                    .take(2)
+                                    .toList(growable: false);
+                                if (active.isEmpty) {
+                                  return AppCard(
+                                    child: EmptyState(
+                                      icon: Icons.wallet_outlined,
+                                      title: 'Start with an account',
+                                      message:
+                                          'Add a cash, bank, or e-wallet balance to see your available money.',
+                                      action: TextButton.icon(
+                                        onPressed: () =>
+                                            context.go(RouteNames.walletsPath),
+                                        icon: const Icon(Icons.add_rounded),
+                                        label: const Text('Open wallets'),
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return Column(
+                                  children: active
+                                      .map(
+                                        (FinancialAccount account) => Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: AppSpacing.small,
+                                          ),
+                                          child: AccountCard(account: account),
+                                        ),
+                                      )
+                                      .toList(growable: false),
+                                );
+                              },
+                            ),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                   const SizedBox(height: AppSpacing.large),
-                  SectionHeader(
+                  _sectionHeader(
+                    context,
+                    ref,
+                    sectionId: 'recentActivity',
                     title: 'Recent activity',
+                    summary: '$activityCount recent transactions',
                     actionLabel: 'Transactions',
                     onAction: () =>
                         context.go(RouteNames.moreModule('transactions')),
+                    expanded: activityExpanded,
                   ),
-                  const SizedBox(height: AppSpacing.small),
-                  transactions.when(
-                    loading: () => const AppLoading(label: 'Loading activity'),
-                    error: (Object error, StackTrace stackTrace) =>
-                        _InlineError(
-                          message: 'Recent activity could not be loaded.',
-                          onRetry: () =>
-                              ref.invalidate(recentTransactionsProvider),
-                        ),
-                    data: (List<FinancialTransactionView> values) {
-                      if (values.isEmpty) {
-                        return const AppCard(
-                          child: EmptyState(
-                            icon: Icons.receipt_long_outlined,
-                            title: 'No activity yet',
-                            message:
-                                'Confirmed income and payments will appear here.',
-                          ),
-                        );
-                      }
-                      return AppCard(
-                        padding: EdgeInsets.zero,
-                        child: Column(
-                          children: values
-                              .take(4)
-                              .map((FinancialTransactionView transaction) {
-                                final bool isIncome = <String>{
-                                  'income',
-                                  'transfer_in',
-                                }.contains(transaction.type);
-                                final String sign = isIncome ? '+' : '−';
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    child: Icon(
-                                      _transactionIcon(transaction.type),
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.topCenter,
+                    child: activityExpanded
+                        ? Padding(
+                            padding: const EdgeInsets.only(
+                              top: AppSpacing.small,
+                            ),
+                            child: transactions.when(
+                              loading: () =>
+                                  const AppLoading(label: 'Loading activity'),
+                              error: (Object error, StackTrace stackTrace) =>
+                                  _InlineError(
+                                    message:
+                                        'Recent activity could not be loaded.',
+                                    onRetry: () => ref.invalidate(
+                                      recentTransactionsProvider,
                                     ),
                                   ),
-                                  title: Text(transaction.title),
-                                  subtitle: Text(
-                                    '${_labelForTransaction(transaction.type)} · ${_accountName(accounts.asData?.value ?? const <FinancialAccount>[], transaction.sourceAccountId ?? transaction.destinationAccountId)} · ${DateFormat.yMMMd().format(transaction.occurredAt.toLocal())}',
-                                  ),
-                                  trailing: Text(
-                                    '$sign${Money(transaction.amountMinorUnits, currencyCode: transaction.currencyCode).format()}',
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelLarge,
-                                  ),
-                                  onTap: () => context.go(
-                                    RouteNames.moreModule('transactions'),
+                              data: (List<FinancialTransactionView> values) {
+                                if (values.isEmpty) {
+                                  return const AppCard(
+                                    child: EmptyState(
+                                      icon: Icons.receipt_long_outlined,
+                                      title: 'No activity yet',
+                                      message:
+                                          'Confirmed income and payments will appear here.',
+                                    ),
+                                  );
+                                }
+                                return AppCard(
+                                  padding: EdgeInsets.zero,
+                                  child: Column(
+                                    children: values
+                                        .take(4)
+                                        .map((
+                                          FinancialTransactionView transaction,
+                                        ) {
+                                          final bool isIncome = <String>{
+                                            'income',
+                                            'transfer_in',
+                                          }.contains(transaction.type);
+                                          final String sign = isIncome
+                                              ? '+'
+                                              : '−';
+                                          return ListTile(
+                                            leading: CircleAvatar(
+                                              child: Icon(
+                                                _transactionIcon(
+                                                  transaction.type,
+                                                ),
+                                              ),
+                                            ),
+                                            title: Text(transaction.title),
+                                            subtitle: Text(
+                                              '${_labelForTransaction(transaction.type)} · ${_accountName(accounts.asData?.value ?? const <FinancialAccount>[], transaction.sourceAccountId ?? transaction.destinationAccountId)} · ${DateFormat.yMMMd().format(transaction.occurredAt.toLocal())}',
+                                            ),
+                                            trailing: Text(
+                                              '$sign${Money(transaction.amountMinorUnits, currencyCode: transaction.currencyCode).format()}',
+                                              style: Theme.of(
+                                                context,
+                                              ).textTheme.labelLarge,
+                                            ),
+                                            onTap: () => context.go(
+                                              RouteNames.moreModule(
+                                                'transactions',
+                                              ),
+                                            ),
+                                          );
+                                        })
+                                        .toList(growable: false),
                                   ),
                                 );
-                              })
-                              .toList(growable: false),
-                        ),
-                      );
-                    },
+                              },
+                            ),
+                          )
+                        : const SizedBox.shrink(),
                   ),
                   const SizedBox(height: AppSpacing.medium),
                   AppCard(
@@ -308,6 +369,53 @@ class HomeScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Widget _sectionHeader(
+    BuildContext context,
+    WidgetRef ref, {
+    required String sectionId,
+    required String title,
+    required String summary,
+    required String actionLabel,
+    required VoidCallback onAction,
+    required bool expanded,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: <Widget>[
+      Row(
+        children: <Widget>[
+          Expanded(
+            child: InkWell(
+              onTap: () => ref
+                  .read(dashboardSectionStateProvider.notifier)
+                  .toggle(sectionId),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+              ),
+            ),
+          ),
+          TextButton(onPressed: onAction, child: Text(actionLabel)),
+          IconButton(
+            tooltip: expanded ? 'Collapse $title' : 'Expand $title',
+            onPressed: () => ref
+                .read(dashboardSectionStateProvider.notifier)
+                .toggle(sectionId),
+            icon: Icon(expanded ? Icons.expand_less : Icons.expand_more),
+          ),
+        ],
+      ),
+      if (!expanded)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AppSpacing.small),
+          child: Text(summary, style: Theme.of(context).textTheme.bodySmall),
+        ),
+    ],
+  );
 
   String _greeting(String? name) => name == null || name.trim().isEmpty
       ? 'Welcome to MyFinance'
@@ -385,11 +493,47 @@ class _QuickSummary extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
-    onTap: onTap,
-    child: SummaryCard(label: label, value: value, icon: icon),
-  );
+  Widget build(BuildContext context) {
+    final ColorScheme colors = Theme.of(context).colorScheme;
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.small),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Row(
+                children: <Widget>[
+                  Icon(icon, color: colors.primary, size: 18),
+                  const Spacer(),
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        value,
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                label,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _InlineError extends StatelessWidget {

@@ -9,7 +9,9 @@ abstract interface class FinancialRepository {
   Stream<List<FinancialAccount>> watchAllFinancialAccounts();
   Stream<FinancialAccount?> watchFinancialAccount(String accountId);
   Stream<List<FinancialTransactionView>> watchTransactions();
-  Stream<List<FinancialTransactionView>> watchRecentTransactions({int limit = 5});
+  Stream<List<FinancialTransactionView>> watchRecentTransactions({
+    int limit = 5,
+  });
   Stream<List<FinancialTransactionView>> watchTransactionsInRange({
     required DateTime startInclusive,
     required DateTime endExclusive,
@@ -27,7 +29,10 @@ abstract interface class FinancialRepository {
   Stream<List<LoanInstallmentEntry>> watchAllInstallments();
   Stream<List<LoanPaymentEntry>> watchLoanPayments();
   Stream<List<SavingsGoalEntry>> watchSavingsGoals();
-  Stream<List<CategoryEntry>> watchCategories({String? categoryType});
+  Stream<List<CategoryEntry>> watchCategories({
+    String? categoryType,
+    bool includeArchived = false,
+  });
   Stream<List<PaydayScheduleEntry>> watchPaydaySchedules();
   Stream<List<AllocationEntry>> watchAllocations(String paydayScheduleId);
 
@@ -38,6 +43,7 @@ abstract interface class FinancialRepository {
   Future<void> restoreAccount(String accountId);
   Future<void> deleteAccount(String accountId);
   Future<String> createCategory(CreateCategoryInput input);
+  Future<void> archiveCategory(String categoryId);
   Future<String> createIncome(CreateIncomeInput input);
   Future<void> updateIncome(UpdateIncomeInput input);
   Future<void> cancelIncome(String incomeId);

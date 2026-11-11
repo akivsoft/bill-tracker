@@ -132,13 +132,6 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                     loan.remainingBalanceMinorUnits > 0,
               )
               .toList();
-          final outstanding = active
-              .where((LoanEntry loan) => loan.currencyCode == currency)
-              .fold<int>(
-                0,
-                (int sum, LoanEntry loan) =>
-                    sum + loan.remainingBalanceMinorUnits,
-              );
           final overdue = installments.where((LoanInstallmentEntry item) {
             final parent = active
                 .where((LoanEntry loan) => loan.id == item.loanId)
@@ -170,20 +163,6 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                 .putIfAbsent(loan.providerName, () => <LoanEntry>[])
                 .add(loan);
           }
-          final actualRepaid = loanPayments
-              .where(
-                (LoanPaymentEntry item) =>
-                    item.status == 'confirmed' &&
-                    loans.any(
-                      (LoanEntry loan) =>
-                          loan.id == item.loanId &&
-                          loan.currencyCode == currency,
-                    ),
-              )
-              .fold<int>(
-                0,
-                (int n, LoanPaymentEntry item) => n + item.amountMinorUnits,
-              );
           return ListView(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.medium,
@@ -202,59 +181,46 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               ),
               const SizedBox(height: AppSpacing.medium),
               LayoutBuilder(
-                builder: (BuildContext context, BoxConstraints box) =>
-                    GridView.count(
-                      crossAxisCount: box.maxWidth > 560 ? 3 : 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: AppSpacing.small,
-                      mainAxisSpacing: AppSpacing.small,
-                      childAspectRatio: 1.7,
-                      children: <Widget>[
-                        SummaryCard(
-                          label: 'Outstanding',
-                          value: Money(
-                            outstanding,
-                            currencyCode: currency,
-                          ).format(),
-                          icon: Icons.account_balance_outlined,
-                        ),
-                        SummaryCard(
-                          label: 'Amount repaid',
-                          value: Money(
-                            actualRepaid,
-                            currencyCode: currency,
-                          ).format(),
-                          icon: Icons.payments_outlined,
-                        ),
-                        SummaryCard(
-                          label: 'Active loans',
-                          value: active.length.toString(),
-                          icon: Icons.credit_score_outlined,
-                        ),
-                        SummaryCard(
-                          label: 'Overdue installments',
-                          value: overdue.length.toString(),
-                          icon: Icons.warning_amber_outlined,
-                        ),
-                        SummaryCard(
-                          label: 'Upcoming installments',
-                          value: upcoming.length.toString(),
-                          icon: Icons.event_outlined,
-                        ),
-                        SummaryCard(
-                          label: 'Fully paid',
-                          value: loans
-                              .where(
-                                (LoanEntry loan) =>
-                                    loan.remainingBalanceMinorUnits == 0,
-                              )
-                              .length
-                              .toString(),
-                          icon: Icons.check_circle_outline,
-                        ),
-                      ],
-                    ),
+                builder: (BuildContext context, BoxConstraints box) {
+                  const int columns = 2;
+                  return GridView.count(
+                    crossAxisCount: columns,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisSpacing: AppSpacing.small,
+                    mainAxisSpacing: AppSpacing.small,
+                    childAspectRatio:
+                        ((box.maxWidth - AppSpacing.small) / columns) / 132,
+                    children: <Widget>[
+                      SummaryCard(
+                        label: 'Active loans',
+                        value: active.length.toString(),
+                        icon: Icons.credit_score_outlined,
+                      ),
+                      SummaryCard(
+                        label: 'Overdue installments',
+                        value: overdue.length.toString(),
+                        icon: Icons.warning_amber_outlined,
+                      ),
+                      SummaryCard(
+                        label: 'Upcoming installments',
+                        value: upcoming.length.toString(),
+                        icon: Icons.event_outlined,
+                      ),
+                      SummaryCard(
+                        label: 'Fully paid',
+                        value: loans
+                            .where(
+                              (LoanEntry loan) =>
+                                  loan.remainingBalanceMinorUnits == 0,
+                            )
+                            .length
+                            .toString(),
+                        icon: Icons.check_circle_outline,
+                      ),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: AppSpacing.large),
               Text('Providers', style: Theme.of(context).textTheme.titleLarge),
@@ -404,43 +370,34 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       .length;
                   final total = rows.length;
                   return Card(
-                    child: ListTile(
-                      onTap: () => _showDetails(
-                        loan,
-                        rows,
-                        accounts,
-                        transactions,
-                        loanPayments,
-                        dateFormat,
-                      ),
-                      leading: CircleAvatar(
-                        child: Text(
-                          loan.providerName.characters.first.toUpperCase(),
-                        ),
-                      ),
-                      title: Text(loan.name),
-                      subtitle: Text(
-                        '${loan.providerName} · ${total == 0 ? 'No installments' : '$complete of $total installments paid'}${loan.nextDueDate == null ? '' : ' · Next ${DateFormat(dateFormat).format(loan.nextDueDate!)}'}',
-                      ),
-                      isThreeLine: true,
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: <Widget>[
-                              Text(
-                                Money(
-                                  loan.remainingBalanceMinorUnits,
-                                  currencyCode: loan.currencyCode,
-                                ).format(),
-                                style: Theme.of(context).textTheme.labelLarge,
-                              ),
-                              _StatusChip(status: _statusLabel(status)),
-                            ],
+                    child: Column(
+                      children: <Widget>[
+                        ListTile(
+                          onTap: () => _showDetails(
+                            loan,
+                            rows,
+                            accounts,
+                            transactions,
+                            loanPayments,
+                            dateFormat,
                           ),
-                          PopupMenuButton<String>(
+                          leading: CircleAvatar(
+                            child: Text(
+                              loan.providerName.characters.first.toUpperCase(),
+                            ),
+                          ),
+                          title: Text(
+                            loan.name,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          subtitle: Text(
+                            '${loan.providerName} · ${total == 0 ? 'No installments' : '$complete of $total installments paid'}${loan.nextDueDate == null ? '' : ' · Next ${DateFormat(dateFormat).format(loan.nextDueDate!)}'}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          trailing: PopupMenuButton<String>(
+                            tooltip: 'Loan actions',
                             onSelected: (String action) =>
                                 _loanAction(action, loan, accounts),
                             itemBuilder: (BuildContext context) =>
@@ -484,8 +441,33 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                                   ),
                                 ],
                           ),
-                        ],
-                      ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.medium,
+                            0,
+                            AppSpacing.medium,
+                            AppSpacing.small,
+                          ),
+                          child: Row(
+                            children: <Widget>[
+                              const Expanded(child: Text('Remaining balance')),
+                              Flexible(
+                                child: Text(
+                                  Money(
+                                    loan.remainingBalanceMinorUnits,
+                                    currencyCode: loan.currencyCode,
+                                  ).format(),
+                                  textAlign: TextAlign.end,
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ),
+                              const SizedBox(width: AppSpacing.xSmall),
+                              _StatusChip(status: _statusLabel(status)),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }),

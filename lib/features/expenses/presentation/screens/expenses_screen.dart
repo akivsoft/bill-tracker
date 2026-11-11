@@ -150,13 +150,43 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
           ),
           children: <Widget>[
             Card(
-              child: ListTile(
-                leading: const Icon(Icons.north_east_rounded),
-                title: const Text('Recorded spending this month'),
-                trailing: Text(
-                  Money(monthSpend, currencyCode: 'PHP').format(),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
+              child: LayoutBuilder(
+                builder: (BuildContext context, BoxConstraints constraints) {
+                  final Widget amount = Text(
+                    Money(monthSpend, currencyCode: 'PHP').format(),
+                    style: Theme.of(context).textTheme.titleMedium,
+                    textAlign: TextAlign.end,
+                  );
+                  if (constraints.maxWidth < 390) {
+                    return Padding(
+                      padding: const EdgeInsets.all(AppSpacing.medium),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          const Row(
+                            children: <Widget>[
+                              Icon(Icons.north_east_rounded),
+                              SizedBox(width: AppSpacing.small),
+                              Expanded(
+                                child: Text('Recorded spending this month'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.small),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: amount,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+                  return ListTile(
+                    leading: const Icon(Icons.north_east_rounded),
+                    title: const Text('Recorded spending this month'),
+                    trailing: amount,
+                  );
+                },
               ),
             ),
             TextField(
@@ -173,6 +203,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: _status,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Status'),
                     items: const <DropdownMenuItem<String>>[
                       DropdownMenuItem(
@@ -200,6 +231,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String?>(
                     initialValue: _categoryFilter,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Category'),
                     items: <DropdownMenuItem<String?>>[
                       const DropdownMenuItem(
@@ -225,6 +257,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 Expanded(
                   child: DropdownButtonFormField<String?>(
                     initialValue: _accountFilter,
+                    isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Account'),
                     items: <DropdownMenuItem<String?>>[
                       const DropdownMenuItem(
@@ -310,15 +343,28 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     leading: const CircleAvatar(
                       child: Icon(Icons.shopping_bag_outlined),
                     ),
-                    title: Text(item.title),
+                    title: Text(
+                      item.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     subtitle: Text(
                       '${categoryNames[item.categoryId] ?? 'Uncategorised'} · ${item.status} · ${DateFormat.yMMMd().format(item.occurredAt.toLocal())}${item.recurrenceConfiguration == null ? '' : ' · recurring template'}',
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    trailing: Text(
-                      Money(
-                        item.amountMinorUnits,
-                        currencyCode: item.currencyCode,
-                      ).format(),
+                    trailing: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 120),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          Money(
+                            item.amountMinorUnits,
+                            currencyCode: item.currencyCode,
+                          ).format(),
+                        ),
+                      ),
                     ),
                     onTap: () => _details(item, categoryNames),
                   ),
@@ -501,6 +547,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 key: form,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  spacing: AppSpacing.small,
                   children: <Widget>[
                     TextFormField(
                       controller: title,
@@ -530,6 +577,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     ),
                     DropdownButtonFormField<String?>(
                       initialValue: categoryId,
+                      isExpanded: true,
                       decoration: const InputDecoration(labelText: 'Category'),
                       items: <DropdownMenuItem<String?>>[
                         const DropdownMenuItem(
@@ -548,6 +596,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     ),
                     DropdownButtonFormField<String?>(
                       initialValue: accountId,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Suggested payment account',
                       ),
