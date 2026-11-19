@@ -58,7 +58,11 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(accountValue.asData?.value?.name ?? 'Account details'),
+        title: Text(
+          accountValue.asData?.value?.name ?? 'Account details',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
         actions: <Widget>[
           if (accountValue.asData?.value case final FinancialAccount account)
             IconButton(
@@ -306,7 +310,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
             crossAxisCount: columns,
             crossAxisSpacing: AppSpacing.small,
             mainAxisSpacing: AppSpacing.small,
-            childAspectRatio: 1.8,
+            childAspectRatio: columns == 2 ? 1.35 : 1.65,
           ),
           itemBuilder: (BuildContext context, int index) {
             final (String label, int amount, IconData icon) = items[index];
@@ -592,6 +596,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
         ),
         const SizedBox(height: AppSpacing.small),
         TextField(
+          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           controller: _searchController,
           onChanged: (String value) => setState(() => _search = value),
           decoration: InputDecoration(
@@ -712,12 +717,18 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
       leading: CircleAvatar(child: Icon(icon)),
       title: Text(transaction.title),
       subtitle: Text(subtitle),
-      trailing: Text(
-        Money(
-          transaction.amountMinorUnits,
-          currencyCode: account.currencyCode,
-        ).format(),
-        style: Theme.of(context).textTheme.titleSmall,
+      trailing: SizedBox(
+        width: 112,
+        child: Text(
+          Money(
+            transaction.amountMinorUnits,
+            currencyCode: account.currencyCode,
+          ).format(),
+          style: Theme.of(context).textTheme.titleSmall,
+          maxLines: 1,
+          textAlign: TextAlign.end,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }

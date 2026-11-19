@@ -30,14 +30,6 @@ class _FinancialSetupScreenState extends ConsumerState<FinancialSetupScreen> {
   bool _saving = false;
   bool _preferencesLoaded = false;
 
-  static const List<(String, String)> _currencies = <(String, String)>[
-    ('PHP', 'PHP · Philippine peso'),
-    ('USD', 'USD · US dollar'),
-    ('SGD', 'SGD · Singapore dollar'),
-    ('EUR', 'EUR · Euro'),
-    ('GBP', 'GBP · Pound sterling'),
-  ];
-
   static const List<(String, String)> _incomeFrequencies = <(String, String)>[
     ('daily', 'Daily'),
     ('weekly', 'Weekly'),
@@ -245,6 +237,7 @@ class _FinancialSetupScreenState extends ConsumerState<FinancialSetupScreen> {
         ),
         const SizedBox(height: AppSpacing.large),
         TextFormField(
+          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           controller: _displayNameController,
           textCapitalization: TextCapitalization.words,
           maxLength: 60,
@@ -267,19 +260,10 @@ class _FinancialSetupScreenState extends ConsumerState<FinancialSetupScreen> {
               setState(() => _countryCode = value ?? 'PH'),
         ),
         const SizedBox(height: AppSpacing.medium),
-        DropdownButtonFormField<String>(
-          initialValue: _currencyCode,
-          decoration: const InputDecoration(labelText: 'Preferred currency'),
-          items: _currencies
-              .map(
-                ((String, String) item) => DropdownMenuItem<String>(
-                  value: item.$1,
-                  child: Text(item.$2),
-                ),
-              )
-              .toList(),
-          onChanged: (String? value) =>
-              setState(() => _currencyCode = value ?? 'PHP'),
+        const ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text('Currency'),
+          subtitle: Text('PHP · Philippine peso (₱)'),
         ),
         const SizedBox(height: AppSpacing.medium),
         DropdownButtonFormField<int>(

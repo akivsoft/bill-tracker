@@ -2,6 +2,7 @@ import 'package:bill_tracker/app/config/app_config.dart';
 import 'package:bill_tracker/app/router/route_names.dart';
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/widgets/app_card.dart';
+import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/widgets/section_header.dart';
 import 'package:bill_tracker/features/authentication/domain/entities/auth_session.dart';
 import 'package:bill_tracker/features/authentication/presentation/providers/authentication_provider.dart';
@@ -13,14 +14,6 @@ import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
-
-  static const List<(String, String)> _currencies = <(String, String)>[
-    ('PHP', 'PHP · Philippine peso'),
-    ('USD', 'USD · US dollar'),
-    ('SGD', 'SGD · Singapore dollar'),
-    ('EUR', 'EUR · Euro'),
-    ('GBP', 'GBP · Pound sterling'),
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -120,29 +113,11 @@ class SettingsScreen extends ConsumerWidget {
                   AppCard(
                     child: Column(
                       children: <Widget>[
-                        DropdownButtonFormField<String>(
-                          initialValue: preferences.currencyCode,
-                          decoration: const InputDecoration(
-                            labelText: 'Currency',
-                            prefixIcon: Icon(Icons.currency_exchange_rounded),
-                          ),
-                          items: _currencies
-                              .map(
-                                ((String, String) currency) =>
-                                    DropdownMenuItem<String>(
-                                      value: currency.$1,
-                                      child: Text(currency.$2),
-                                    ),
-                              )
-                              .toList(),
-                          onChanged: (String? value) {
-                            if (value != null) {
-                              _savePersonalPreferences(
-                                ref,
-                                preferences.copyWith(currencyCode: value),
-                              );
-                            }
-                          },
+                        const ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.currency_exchange_rounded),
+                          title: Text('Currency'),
+                          subtitle: Text('PHP · Philippine peso (₱)'),
                         ),
                         const SizedBox(height: AppSpacing.medium),
                         DropdownButtonFormField<String>(
@@ -371,11 +346,12 @@ class SettingsScreen extends ConsumerWidget {
     final TextEditingController controller = TextEditingController(
       text: preferences.displayName ?? '',
     );
-    final String? value = await showDialog<String>(
+    final String? value = await showDialogAndWaitForExit<String>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Display name'),
         content: TextField(
+          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           controller: controller,
           autofocus: true,
           textCapitalization: TextCapitalization.words,

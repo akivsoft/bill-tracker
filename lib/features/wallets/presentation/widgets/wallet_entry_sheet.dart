@@ -328,6 +328,8 @@ class _WalletEntrySheetState extends ConsumerState<WalletEntrySheet> {
                   children: <Widget>[
                     if (widget.action == WalletAction.addMoney) ...<Widget>[
                       TextFormField(
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                         controller: _sourceController,
                         textCapitalization: TextCapitalization.sentences,
                         validator: (String? value) =>
@@ -350,6 +352,8 @@ class _WalletEntrySheetState extends ConsumerState<WalletEntrySheet> {
                     ],
                     if (widget.action == WalletAction.expense) ...<Widget>[
                       TextFormField(
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                         controller: _titleController,
                         textCapitalization: TextCapitalization.sentences,
                         validator: (String? value) =>
@@ -444,6 +448,8 @@ class _WalletEntrySheetState extends ConsumerState<WalletEntrySheet> {
                       const SizedBox(height: AppSpacing.medium),
                     ],
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: _amountController,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -462,6 +468,8 @@ class _WalletEntrySheetState extends ConsumerState<WalletEntrySheet> {
                     if (widget.action == WalletAction.transfer) ...<Widget>[
                       const SizedBox(height: AppSpacing.medium),
                       TextFormField(
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                         controller: _feeController,
                         keyboardType: const TextInputType.numberWithOptions(
                           decimal: true,
@@ -555,6 +563,7 @@ class _WalletEntrySheetState extends ConsumerState<WalletEntrySheet> {
 
   Widget _categoryField(String label, {TextEditingController? controller}) =>
       TextFormField(
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
         controller: controller ?? _categoryController,
         textCapitalization: TextCapitalization.sentences,
         decoration: InputDecoration(

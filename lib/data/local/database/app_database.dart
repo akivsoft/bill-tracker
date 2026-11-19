@@ -41,7 +41,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: AppConfig.databaseName));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -140,6 +140,19 @@ class AppDatabase extends _$AppDatabase {
           financialAllocations.fulfilledAmountMinorUnits,
         );
       }
+      if (from < 8 && from >= 2) {
+        final List<QueryRow> loansColumns = await customSelect(
+          'PRAGMA table_info(loans)',
+        ).get();
+        if (loansColumns.any(
+              (QueryRow column) => column.read<String>('name') == 'id',
+            ) &&
+            !loansColumns.any(
+              (QueryRow column) => column.read<String>('name') == 'category_id',
+            )) {
+          await migrator.addColumn(loans, loans.categoryId);
+        }
+      }
     },
     beforeOpen: (OpeningDetails details) async {
       await customStatement('PRAGMA foreign_keys = ON');
@@ -201,6 +214,7 @@ class AppDatabase extends _$AppDatabase {
         loans,
         newColumns: <GeneratedColumn>[
           loans.providerId,
+          loans.categoryId,
           loans.remainingBalanceMinorUnits,
           loans.interestRateBasisPoints,
           loans.totalInterestMinorUnits,

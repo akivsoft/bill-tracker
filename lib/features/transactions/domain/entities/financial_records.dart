@@ -178,6 +178,7 @@ final class LoanEntry {
     required this.openedAt,
     required this.status,
     this.providerId,
+    this.categoryId,
     this.interestRateBasisPoints = 0,
     this.totalInterestMinorUnits = 0,
     this.endDate,
@@ -196,6 +197,7 @@ final class LoanEntry {
   final String name;
   final String providerName;
   final String? providerId;
+  final String? categoryId;
   final int principalMinorUnits;
   final int remainingBalanceMinorUnits;
   final int totalRepaymentMinorUnits;

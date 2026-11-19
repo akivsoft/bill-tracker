@@ -1,5 +1,6 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
+import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/core/widgets/app_card.dart';
 import 'package:bill_tracker/core/widgets/empty_state.dart';
@@ -24,6 +25,88 @@ class LoansScreen extends ConsumerStatefulWidget {
   ConsumerState<LoansScreen> createState() => _LoansScreenState();
 }
 
+class _NewLoanCategoryDialog extends StatefulWidget {
+  const _NewLoanCategoryDialog({required this.existing, required this.onSave});
+
+  final List<CategoryEntry> existing;
+  final Future<CategoryEntry> Function(String name) onSave;
+
+  @override
+  State<_NewLoanCategoryDialog> createState() => _NewLoanCategoryDialogState();
+}
+
+class _NewLoanCategoryDialogState extends State<_NewLoanCategoryDialog> {
+  final TextEditingController _name = TextEditingController();
+  final GlobalKey<FormState> _form = GlobalKey<FormState>();
+  bool _saving = false;
+  String? _saveError;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: const Text('New loan category'),
+    content: Form(
+      key: _form,
+      child: TextFormField(
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        controller: _name,
+        autofocus: true,
+        maxLength: 80,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        decoration: InputDecoration(
+          labelText: 'Category name',
+          errorText: _saveError,
+        ),
+        validator: (String? value) {
+          final String normalized = value?.trim() ?? '';
+          if (normalized.isEmpty) return 'Please enter a category name.';
+          if (widget.existing.any(
+            (CategoryEntry item) =>
+                item.name.trim().toLowerCase() == normalized.toLowerCase(),
+          )) {
+            return 'This category already exists.';
+          }
+          return null;
+        },
+      ),
+    ),
+    actions: <Widget>[
+      TextButton(
+        onPressed: _saving ? null : () => Navigator.pop(context),
+        child: const Text('Cancel'),
+      ),
+      FilledButton(
+        onPressed: _saving ? null : _save,
+        child: Text(_saving ? 'Saving…' : 'Save'),
+      ),
+    ],
+  );
+
+  Future<void> _save() async {
+    if (!(_form.currentState?.validate() ?? false)) return;
+    setState(() {
+      _saving = true;
+      _saveError = null;
+    });
+    try {
+      final CategoryEntry created = await widget.onSave(_name.text.trim());
+      if (mounted) Navigator.pop(context, created);
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _saving = false;
+          _saveError = 'Could not save category. Please try again.';
+        });
+      }
+    }
+  }
+}
+
 class _LoansScreenState extends ConsumerState<LoansScreen> {
   static const Uuid _uuid = Uuid();
   static const List<String> _providers = <String>[
@@ -39,7 +122,16 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     'Personal Loans',
     'Other',
   ];
+  bool _loanCategorySeedStarted = false;
   String _loanFilter = 'active';
+  static const List<String> _defaultLoanCategories = <String>[
+    'Personal',
+    'Mortgage',
+    'Auto',
+    'Education',
+    'Business',
+    'Other',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -48,6 +140,20 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     final accountsAsync = ref.watch(walletManagementAccountsProvider);
     final transactionsAsync = ref.watch(recentTransactionsProvider);
     final paymentsAsync = ref.watch(loanPaymentsOverviewProvider);
+    final categoriesAsync = ref.watch(loanCategoriesProvider);
+    final allCategoriesAsync = ref.watch(
+      loanCategoriesIncludingArchivedProvider,
+    );
+    final List<CategoryEntry> loanCategories =
+        categoriesAsync.asData?.value ?? const <CategoryEntry>[];
+    final List<CategoryEntry> allLoanCategories =
+        allCategoriesAsync.asData?.value ?? loanCategories;
+    if (categoriesAsync.hasValue &&
+        allCategoriesAsync.hasValue &&
+        !_loanCategorySeedStarted) {
+      _loanCategorySeedStarted = true;
+      if (allLoanCategories.isEmpty) _seedLoanCategories();
+    }
     final currency =
         ref.watch(userPreferencesProvider).asData?.value.currencyCode ?? 'PHP';
     final dateFormat =
@@ -369,6 +475,10 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       )
                       .length;
                   final total = rows.length;
+                  final String? categoryName = allLoanCategories
+                      .where((CategoryEntry item) => item.id == loan.categoryId)
+                      .map((CategoryEntry item) => item.name)
+                      .firstOrNull;
                   return Card(
                     child: Column(
                       children: <Widget>[
@@ -392,7 +502,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           subtitle: Text(
-                            '${loan.providerName} · ${total == 0 ? 'No installments' : '$complete of $total installments paid'}${loan.nextDueDate == null ? '' : ' · Next ${DateFormat(dateFormat).format(loan.nextDueDate!)}'}',
+                            '${loan.providerName}${categoryName == null ? '' : ' · $categoryName'} · ${total == 0 ? 'No installments' : '$complete of $total installments paid'}${loan.nextDueDate == null ? '' : ' · Next ${DateFormat(dateFormat).format(loan.nextDueDate!)}'}',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -492,11 +602,103 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     LoanStatus.cancelled => 'Cancelled',
   };
 
+  Future<T?> _showDialogAndWaitForExit<T>(WidgetBuilder builder) =>
+      showDialogAndWaitForExit<T>(context: context, builder: builder);
+
+  Future<void> _seedLoanCategories() async {
+    final repository = ref.read(financialRepositoryProvider);
+    try {
+      for (final String name in _defaultLoanCategories) {
+        await repository.createCategory(
+          CreateCategoryInput(
+            name: name,
+            categoryType: 'loan',
+            isDefault: true,
+          ),
+        );
+      }
+    } catch (error) {
+      _toast('Could not load default loan categories: $error');
+    }
+  }
+
+  Stream<List<CategoryEntry>> _loanCategoryStream() => ref
+      .read(financialRepositoryProvider)
+      .watchCategories(categoryType: 'loan');
+
+  Future<CategoryEntry?> _createLoanCategory(List<CategoryEntry> existing) =>
+      showDialog<CategoryEntry>(
+        context: context,
+        builder: (BuildContext context) => _NewLoanCategoryDialog(
+          existing: existing,
+          onSave: (String name) async {
+            final String id = await ref
+                .read(financialRepositoryProvider)
+                .createCategory(
+                  CreateCategoryInput(name: name, categoryType: 'loan'),
+                );
+            ref.invalidate(loanCategoriesProvider);
+            ref.invalidate(loanCategoriesIncludingArchivedProvider);
+            return CategoryEntry(
+              id: id,
+              name: name,
+              categoryType: 'loan',
+              isDefault: false,
+            );
+          },
+        ),
+      );
+
+  Future<bool> _removeLoanCategory(CategoryEntry category) async {
+    if (category.isDefault) return false;
+    final List<LoanEntry> loans =
+        ref.read(loansOverviewProvider).asData?.value ?? const <LoanEntry>[];
+    final bool used = loans.any(
+      (LoanEntry loan) => loan.categoryId == category.id,
+    );
+    final bool? confirmed = await _showDialogAndWaitForExit<bool>(
+      (BuildContext context) => AlertDialog(
+        title: const Text('Remove custom category?'),
+        content: Text(
+          used
+              ? 'Loans already using "${category.name}" will keep this category in their history. It will no longer be available for new loans.'
+              : 'Remove "${category.name}" from your loan categories?',
+        ),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return false;
+    try {
+      await ref.read(financialRepositoryProvider).archiveCategory(category.id);
+      ref.invalidate(loanCategoriesProvider);
+      ref.invalidate(loanCategoriesIncludingArchivedProvider);
+      return true;
+    } catch (error) {
+      _toast('Could not remove category: $error');
+      return false;
+    }
+  }
+
   Future<void> _editLoan(
     LoanEntry? loan,
     List<FinancialAccount> accounts,
   ) async {
     final repository = ref.read(financialRepositoryProvider);
+    final List<CategoryEntry> categories =
+        ref.read(loanCategoriesProvider).asData?.value ??
+        const <CategoryEntry>[];
+    final List<CategoryEntry> existingCategories =
+        ref.read(loanCategoriesIncludingArchivedProvider).asData?.value ??
+        categories;
     final name = TextEditingController(text: loan?.name ?? '');
     final provider = TextEditingController(text: loan?.providerName ?? '');
     final principal = TextEditingController(
@@ -540,13 +742,193 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
         ? 'custom'
         : loan?.paymentFrequency ?? 'monthly';
     String? accountId = loan?.paymentAccountId;
+    String? categoryId = loan?.categoryId;
+    final List<CategoryEntry> formCategories = <CategoryEntry>[
+      ...existingCategories,
+    ];
+    if (categoryId != null &&
+        !formCategories.any((CategoryEntry item) => item.id == categoryId)) {
+      formCategories.add(
+        CategoryEntry(
+          id: categoryId,
+          name: 'Existing category',
+          categoryType: 'loan',
+          isDefault: true,
+          isArchived: true,
+        ),
+      );
+    }
+    final Set<String> removedCategoryIds = <String>{};
+    final Map<String, CategoryEntry> createdInForm = <String, CategoryEntry>{};
+
+    Future<void> selectLoanCategory(
+      BuildContext dialogContext,
+      StateSetter setDialogState,
+    ) async {
+      final Stream<List<CategoryEntry>> categoriesStream =
+          _loanCategoryStream();
+      final String? selected = await showDialog<String>(
+        context: context,
+        useRootNavigator: true,
+        builder: (BuildContext pickerContext) => StatefulBuilder(
+          builder: (BuildContext context, StateSetter setPickerState) =>
+              AlertDialog(
+                title: const Text('Choose loan category'),
+                content: SizedBox(
+                  width: 400,
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: StreamBuilder<List<CategoryEntry>>(
+                    stream: categoriesStream,
+                    builder: (BuildContext context, snapshot) {
+                      final Map<String, CategoryEntry> byId =
+                          <String, CategoryEntry>{
+                            for (final CategoryEntry item
+                                in (snapshot.data ?? formCategories))
+                              if (!item.isArchived &&
+                                  !removedCategoryIds.contains(item.id))
+                                item.id: item,
+                            for (final CategoryEntry item
+                                in createdInForm.values)
+                              if (!removedCategoryIds.contains(item.id))
+                                item.id: item,
+                          };
+                      final List<CategoryEntry> available = byId.values.toList()
+                        ..sort((CategoryEntry a, CategoryEntry b) {
+                          if (a.isDefault != b.isDefault) {
+                            return a.isDefault ? 1 : -1;
+                          }
+                          return a.name.toLowerCase().compareTo(
+                            b.name.toLowerCase(),
+                          );
+                        });
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          available.isEmpty) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      return ListView(
+                        children: <Widget>[
+                          ListTile(
+                            title: const Text('No category'),
+                            selected: categoryId == null,
+                            onTap: () => Navigator.pop(pickerContext, ''),
+                          ),
+                          if (available.isEmpty)
+                            const ListTile(
+                              title: Text('No loan categories available.'),
+                            ),
+                          ...available.map((CategoryEntry item) {
+                            final bool isSelected = categoryId == item.id;
+                            return ListTile(
+                              title: Text(item.name),
+                              selected: isSelected,
+                              trailing: item.isDefault
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'Remove ${item.name}',
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                      ),
+                                      onPressed: () async {
+                                        final bool removed =
+                                            await _removeLoanCategory(item);
+                                        if (!removed ||
+                                            !pickerContext.mounted) {
+                                          return;
+                                        }
+                                        removedCategoryIds.add(item.id);
+                                        createdInForm.remove(item.id);
+                                        if (loan?.categoryId == item.id) {
+                                          final int index = formCategories
+                                              .indexWhere(
+                                                (CategoryEntry category) =>
+                                                    category.id == item.id,
+                                              );
+                                          if (index >= 0) {
+                                            final CategoryEntry old =
+                                                formCategories[index];
+                                            formCategories[index] =
+                                                CategoryEntry(
+                                                  id: old.id,
+                                                  name: old.name,
+                                                  categoryType:
+                                                      old.categoryType,
+                                                  isDefault: old.isDefault,
+                                                  isArchived: true,
+                                                );
+                                          }
+                                        } else {
+                                          formCategories.removeWhere(
+                                            (CategoryEntry category) =>
+                                                category.id == item.id,
+                                          );
+                                          if (categoryId == item.id) {
+                                            setDialogState(
+                                              () => categoryId = null,
+                                            );
+                                          }
+                                        }
+                                        setPickerState(() {});
+                                      },
+                                    ),
+                              onTap: () =>
+                                  Navigator.pop(pickerContext, item.id),
+                            );
+                          }),
+                          const Divider(),
+                          ListTile(
+                            title: const Text('Add other category'),
+                            onTap: () async {
+                              final List<CategoryEntry>
+                              existing = <CategoryEntry>{
+                                ...available,
+                                ...ref
+                                        .read(
+                                          loanCategoriesIncludingArchivedProvider,
+                                        )
+                                        .asData
+                                        ?.value ??
+                                    const <CategoryEntry>[],
+                              }.toList();
+                              final CategoryEntry? created =
+                                  await _createLoanCategory(existing);
+                              if (created == null || !pickerContext.mounted) {
+                                return;
+                              }
+                              createdInForm[created.id] = created;
+                              if (!formCategories.any(
+                                (CategoryEntry item) => item.id == created.id,
+                              )) {
+                                formCategories.add(created);
+                              }
+                              setPickerState(() {});
+                              Navigator.pop(pickerContext, created.id);
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                actions: <Widget>[
+                  TextButton(
+                    onPressed: () => Navigator.pop(pickerContext),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              ),
+        ),
+      );
+      if (selected != null && dialogContext.mounted) {
+        setDialogState(() => categoryId = selected.isEmpty ? null : selected);
+      }
+    }
+
     DateTime opened = loan?.openedAt ?? DateTime.now();
     DateTime firstDue =
         loan?.nextDueDate ?? DateTime.now().add(const Duration(days: 30));
     final form = GlobalKey<FormState>();
-    final bool? save = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
+    final bool? save = await _showDialogAndWaitForExit<bool>(
+      (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setStateDialog) => AlertDialog(
           title: Text(loan == null ? 'Add loan' : 'Edit loan'),
           content: SizedBox(
@@ -556,8 +938,11 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                 key: form,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
+                  spacing: AppSpacing.small,
                   children: <Widget>[
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: name,
                       decoration: const InputDecoration(labelText: 'Loan name'),
                       validator: _required,
@@ -579,6 +964,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                             VoidCallback submit,
                           ) {
                             return TextFormField(
+                              onTapOutside: (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
                               controller: controller,
                               focusNode: focus,
                               onChanged: (String value) =>
@@ -590,7 +977,43 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                             );
                           },
                     ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () =>
+                          selectLoanCategory(dialogContext, setStateDialog),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Loan category',
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: <Widget>[
+                              Expanded(
+                                child: Text(
+                                  formCategories
+                                          .where(
+                                            (CategoryEntry item) =>
+                                                item.id == categoryId,
+                                          )
+                                          .map(
+                                            (CategoryEntry item) => item.name,
+                                          )
+                                          .firstOrNull ??
+                                      'No category',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.arrow_drop_down),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: principal,
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -602,6 +1025,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       validator: _moneyRequired,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: interest,
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -613,6 +1038,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       validator: _moneyOptional,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: repaymentAmount,
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -626,6 +1053,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       validator: _repaymentValidator,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: rate,
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -633,10 +1062,13 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       ),
                       decoration: const InputDecoration(
                         labelText: 'Interest rate (% per year, optional)',
+                        floatingLabelBehavior: FloatingLabelBehavior.always,
                       ),
                       validator: _decimalOptional,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: installment,
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
@@ -648,6 +1080,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       validator: _moneyOptional,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: count,
                       enabled: loan == null,
                       keyboardType: TextInputType.number,
@@ -657,6 +1091,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       validator: _positiveInt,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: duration,
                       enabled: loan == null,
                       keyboardType: TextInputType.number,
@@ -667,6 +1103,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                     ),
                     DropdownButtonFormField<String>(
                       initialValue: frequency,
+                      isExpanded: true,
                       // Editing an existing schedule is handled installment by installment.
                       onChanged: loan == null
                           ? (String? value) => setStateDialog(
@@ -698,6 +1135,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                     ),
                     if (frequency == 'custom' && loan == null)
                       TextFormField(
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                         controller: customDays,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
@@ -715,7 +1154,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       ),
                       _dateButton(
                         context,
-                        'First installment due',
+                        'Due date',
                         firstDue,
                         (DateTime value) =>
                             setStateDialog(() => firstDue = value),
@@ -723,6 +1162,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                     ],
                     DropdownButtonFormField<String?>(
                       initialValue: accountId,
+                      isExpanded: true,
                       decoration: const InputDecoration(
                         labelText: 'Default payment account',
                       ),
@@ -748,6 +1188,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       onChanged: (String? value) => accountId = value,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: notes,
                       decoration: const InputDecoration(labelText: 'Notes'),
                       maxLines: 2,
@@ -835,6 +1277,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               installmentAmountMinorUnits: perInstallment,
               totalInstallments: installmentsCount,
               paymentAccountId: accountId,
+              categoryId: categoryId,
               notes: notes.text.trim(),
             ),
           );
@@ -867,6 +1310,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               installmentAmountMinorUnits: perInstallment,
               totalInstallments: installmentsCount,
               paymentAccountId: accountId,
+              categoryId: categoryId,
               notes: notes.text.trim(),
             ),
           );
@@ -1111,11 +1555,11 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
         (available.isEmpty ? null : available.first.id);
     DateTime date = DateTime.now();
     final form = GlobalKey<FormState>();
-    final bool? save = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
+    final bool? save = await _showDialogAndWaitForExit<bool>(
+      (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter update) => AlertDialog(
           title: const Text('Confirm installment payment'),
+          scrollable: true,
           content: Form(
             key: form,
             child: Column(
@@ -1128,6 +1572,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                   'Scheduled ${Money(installment.scheduledMinorUnits, currencyCode: loan.currencyCode).format()} · Remaining ${Money(installment.scheduledMinorUnits - installment.paidMinorUnits, currencyCode: loan.currencyCode).format()}',
                 ),
                 TextFormField(
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   controller: amount,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -1165,6 +1611,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                   (DateTime value) => update(() => date = value),
                 ),
                 TextFormField(
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   controller: notes,
                   decoration: const InputDecoration(
                     labelText: 'Notes (optional)',
@@ -1321,21 +1769,23 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     DateTime date = item?.dueDate ?? loan.nextDueDate ?? DateTime.now();
     String? accountId = item?.paymentAccountId ?? loan.paymentAccountId;
     final form = GlobalKey<FormState>();
-    final bool? save = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
+    final bool? save = await _showDialogAndWaitForExit<bool>(
+      (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter update) => AlertDialog(
           title: Text(
             item == null
                 ? 'Add installment $number'
                 : 'Edit installment ${item.installmentNumber}',
           ),
+          scrollable: true,
           content: Form(
             key: form,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 TextFormField(
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   controller: amount,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -1378,6 +1828,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                   onChanged: (String? value) => accountId = value,
                 ),
                 TextFormField(
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   controller: notes,
                   decoration: const InputDecoration(labelText: 'Notes'),
                 ),
@@ -1521,11 +1973,11 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     String? accountId = available.isEmpty ? null : available.first.id;
     DateTime receivedAt = DateTime.now();
     final form = GlobalKey<FormState>();
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => StatefulBuilder(
+    final bool? confirmed = await _showDialogAndWaitForExit<bool>(
+      (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter update) => AlertDialog(
           title: const Text('Record loan funds received'),
+          scrollable: true,
           content: Form(
             key: form,
             child: Column(
@@ -1533,6 +1985,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               children: <Widget>[
                 Text(loan.name),
                 TextFormField(
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   controller: amount,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -1566,6 +2020,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                   (DateTime value) => update(() => receivedAt = value),
                 ),
                 TextFormField(
+                  onTapOutside: (_) =>
+                      FocusManager.instance.primaryFocus?.unfocus(),
                   controller: notes,
                   decoration: const InputDecoration(labelText: 'Notes'),
                 ),
@@ -1620,10 +2076,10 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     );
     final reason = TextEditingController();
     final form = GlobalKey<FormState>();
-    final bool? confirmed = await showDialog<bool>(
-      context: context,
-      builder: (BuildContext dialogContext) => AlertDialog(
+    final bool? confirmed = await _showDialogAndWaitForExit<bool>(
+      (BuildContext dialogContext) => AlertDialog(
         title: const Text('Adjust lender balance'),
+        scrollable: true,
         content: Form(
           key: form,
           child: Column(
@@ -1633,6 +2089,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                 'Recorded obligation: ${Money(loan.remainingBalanceMinorUnits, currencyCode: loan.currencyCode).format()}',
               ),
               TextFormField(
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
                 controller: amount,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
@@ -1643,6 +2101,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                 validator: _moneyNonNegativeRequired,
               ),
               TextFormField(
+                onTapOutside: (_) =>
+                    FocusManager.instance.primaryFocus?.unfocus(),
                 controller: reason,
                 decoration: const InputDecoration(
                   labelText: 'Reason (required)',
@@ -1692,9 +2152,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
   }
 
   Future<bool> _confirm(String title, String message) async =>
-      await showDialog<bool>(
-        context: context,
-        builder: (BuildContext context) => AlertDialog(
+      await _showDialogAndWaitForExit<bool>(
+        (BuildContext context) => AlertDialog(
           title: Text(title),
           content: Text(message),
           actions: <Widget>[
@@ -1729,7 +2188,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
         firstDate: DateTime(1900),
         lastDate: DateTime(2200),
       );
-      if (value != null) onChanged(value);
+      if (value != null && context.mounted) onChanged(value);
     },
   );
 

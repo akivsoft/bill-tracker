@@ -276,6 +276,7 @@ class LocalFinancialDataSource {
                     name: row.name,
                     providerName: row.providerName,
                     providerId: row.providerId,
+                    categoryId: row.categoryId,
                     principalMinorUnits: row.principalMinorUnits,
                     remainingBalanceMinorUnits: row.remainingBalanceMinorUnits,
                     interestRateBasisPoints: row.interestRateBasisPoints,
@@ -979,6 +980,7 @@ class LocalFinancialDataSource {
         'user_id': input.userId,
         'name': input.name.trim(),
         'category_type': input.categoryType,
+        'is_default': input.isDefault,
       });
     });
     return id;
@@ -1601,6 +1603,15 @@ class LocalFinancialDataSource {
     _requireNonNegative(input.totalInstallments, 'totalInstallments');
     _requireCurrency(input.currencyCode);
     _requireLoanFrequency(input.paymentFrequency);
+    if (input.categoryId != null) {
+      final CategoryRecord category =
+          await (_database.select(_database.categories)
+                ..where((Categories row) => row.id.equals(input.categoryId!)))
+              .getSingle();
+      if (category.categoryType != 'loan' || category.archivedAt != null) {
+        throw StateError('Choose an active loan category.');
+      }
+    }
 
     if (input.paymentAccountId != null) {
       final FinancialAccountRecord account = await _account(
@@ -1628,6 +1639,7 @@ class LocalFinancialDataSource {
               userId: Value<String?>(input.userId),
               providerName: input.providerName.trim(),
               providerId: Value<String?>(providerId),
+              categoryId: Value<String?>(input.categoryId),
               name: input.name.trim(),
               principalMinorUnits: input.principalMinorUnits,
               remainingBalanceMinorUnits: Value<int>(
@@ -1659,6 +1671,7 @@ class LocalFinancialDataSource {
         'id': id,
         'user_id': input.userId,
         'provider_id': providerId,
+        'category_id': input.categoryId,
         'provider_name': input.providerName.trim(),
         'name': input.name.trim(),
         'principal_amount': _decimalAmount(input.principalMinorUnits),
@@ -1883,6 +1896,16 @@ class LocalFinancialDataSource {
     await _database.transaction(() async {
       final LoanRecord loan = await _loan(input.loanId);
       if (loan.archivedAt != null) throw StateError('Reopen this loan first.');
+      if (input.categoryId != null) {
+        final CategoryRecord category =
+            await (_database.select(_database.categories)
+                  ..where((Categories row) => row.id.equals(input.categoryId!)))
+                .getSingle();
+        if (category.categoryType != 'loan' ||
+            (category.archivedAt != null && category.id != loan.categoryId)) {
+          throw StateError('Choose an active loan category.');
+        }
+      }
       if (input.paymentAccountId != null) {
         final FinancialAccountRecord account = await _account(
           input.paymentAccountId!,
@@ -1938,6 +1961,7 @@ class LocalFinancialDataSource {
           name: Value<String>(input.name.trim()),
           providerName: Value<String>(input.providerName.trim()),
           providerId: Value<String?>(providerId),
+          categoryId: Value<String?>(input.categoryId),
           principalMinorUnits: Value<int>(input.principalMinorUnits),
           remainingBalanceMinorUnits: Value<int>(
             input.remainingBalanceMinorUnits,
@@ -1962,6 +1986,7 @@ class LocalFinancialDataSource {
       await _enqueue('loans', loan.id, <String, Object?>{
         'id': loan.id,
         'provider_id': providerId,
+        'category_id': input.categoryId,
         'provider_name': input.providerName.trim(),
         'name': input.name.trim(),
         'principal_amount': _decimalAmount(input.principalMinorUnits),

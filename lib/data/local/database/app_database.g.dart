@@ -4894,6 +4894,20 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
       'REFERENCES loan_providers (id)',
     ),
   );
+  static const VerificationMeta _categoryIdMeta = const VerificationMeta(
+    'categoryId',
+  );
+  @override
+  late final GeneratedColumn<String> categoryId = GeneratedColumn<String>(
+    'category_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES categories (id)',
+    ),
+  );
   static const VerificationMeta _nameMeta = const VerificationMeta('name');
   @override
   late final GeneratedColumn<String> name = GeneratedColumn<String>(
@@ -5176,6 +5190,7 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
     userId,
     providerName,
     providerId,
+    categoryId,
     name,
     principalMinorUnits,
     remainingBalanceMinorUnits,
@@ -5239,6 +5254,12 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
       context.handle(
         _providerIdMeta,
         providerId.isAcceptableOrUnknown(data['provider_id']!, _providerIdMeta),
+      );
+    }
+    if (data.containsKey('category_id')) {
+      context.handle(
+        _categoryIdMeta,
+        categoryId.isAcceptableOrUnknown(data['category_id']!, _categoryIdMeta),
       );
     }
     if (data.containsKey('name')) {
@@ -5465,6 +5486,10 @@ class $LoansTable extends Loans with TableInfo<$LoansTable, LoanRecord> {
         DriftSqlType.string,
         data['${effectivePrefix}provider_id'],
       ),
+      categoryId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}category_id'],
+      ),
       name: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}name'],
@@ -5575,6 +5600,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
   final String? userId;
   final String providerName;
   final String? providerId;
+  final String? categoryId;
   final String name;
   final int principalMinorUnits;
   final int remainingBalanceMinorUnits;
@@ -5604,6 +5630,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     this.userId,
     required this.providerName,
     this.providerId,
+    this.categoryId,
     required this.name,
     required this.principalMinorUnits,
     required this.remainingBalanceMinorUnits,
@@ -5639,6 +5666,9 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     map['provider_name'] = Variable<String>(providerName);
     if (!nullToAbsent || providerId != null) {
       map['provider_id'] = Variable<String>(providerId);
+    }
+    if (!nullToAbsent || categoryId != null) {
+      map['category_id'] = Variable<String>(categoryId);
     }
     map['name'] = Variable<String>(name);
     map['principal_minor_units'] = Variable<int>(principalMinorUnits);
@@ -5697,6 +5727,9 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       providerId: providerId == null && nullToAbsent
           ? const Value.absent()
           : Value(providerId),
+      categoryId: categoryId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(categoryId),
       name: Value(name),
       principalMinorUnits: Value(principalMinorUnits),
       remainingBalanceMinorUnits: Value(remainingBalanceMinorUnits),
@@ -5748,6 +5781,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       userId: serializer.fromJson<String?>(json['userId']),
       providerName: serializer.fromJson<String>(json['providerName']),
       providerId: serializer.fromJson<String?>(json['providerId']),
+      categoryId: serializer.fromJson<String?>(json['categoryId']),
       name: serializer.fromJson<String>(json['name']),
       principalMinorUnits: serializer.fromJson<int>(
         json['principalMinorUnits'],
@@ -5794,6 +5828,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       'userId': serializer.toJson<String?>(userId),
       'providerName': serializer.toJson<String>(providerName),
       'providerId': serializer.toJson<String?>(providerId),
+      'categoryId': serializer.toJson<String?>(categoryId),
       'name': serializer.toJson<String>(name),
       'principalMinorUnits': serializer.toJson<int>(principalMinorUnits),
       'remainingBalanceMinorUnits': serializer.toJson<int>(
@@ -5836,6 +5871,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     Value<String?> userId = const Value.absent(),
     String? providerName,
     Value<String?> providerId = const Value.absent(),
+    Value<String?> categoryId = const Value.absent(),
     String? name,
     int? principalMinorUnits,
     int? remainingBalanceMinorUnits,
@@ -5865,6 +5901,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     userId: userId.present ? userId.value : this.userId,
     providerName: providerName ?? this.providerName,
     providerId: providerId.present ? providerId.value : this.providerId,
+    categoryId: categoryId.present ? categoryId.value : this.categoryId,
     name: name ?? this.name,
     principalMinorUnits: principalMinorUnits ?? this.principalMinorUnits,
     remainingBalanceMinorUnits:
@@ -5911,6 +5948,9 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
       providerId: data.providerId.present
           ? data.providerId.value
           : this.providerId,
+      categoryId: data.categoryId.present
+          ? data.categoryId.value
+          : this.categoryId,
       name: data.name.present ? data.name.value : this.name,
       principalMinorUnits: data.principalMinorUnits.present
           ? data.principalMinorUnits.value
@@ -5977,6 +6017,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
           ..write('userId: $userId, ')
           ..write('providerName: $providerName, ')
           ..write('providerId: $providerId, ')
+          ..write('categoryId: $categoryId, ')
           ..write('name: $name, ')
           ..write('principalMinorUnits: $principalMinorUnits, ')
           ..write('remainingBalanceMinorUnits: $remainingBalanceMinorUnits, ')
@@ -6011,6 +6052,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
     userId,
     providerName,
     providerId,
+    categoryId,
     name,
     principalMinorUnits,
     remainingBalanceMinorUnits,
@@ -6044,6 +6086,7 @@ class LoanRecord extends DataClass implements Insertable<LoanRecord> {
           other.userId == this.userId &&
           other.providerName == this.providerName &&
           other.providerId == this.providerId &&
+          other.categoryId == this.categoryId &&
           other.name == this.name &&
           other.principalMinorUnits == this.principalMinorUnits &&
           other.remainingBalanceMinorUnits == this.remainingBalanceMinorUnits &&
@@ -6076,6 +6119,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
   final Value<String?> userId;
   final Value<String> providerName;
   final Value<String?> providerId;
+  final Value<String?> categoryId;
   final Value<String> name;
   final Value<int> principalMinorUnits;
   final Value<int> remainingBalanceMinorUnits;
@@ -6106,6 +6150,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     this.userId = const Value.absent(),
     this.providerName = const Value.absent(),
     this.providerId = const Value.absent(),
+    this.categoryId = const Value.absent(),
     this.name = const Value.absent(),
     this.principalMinorUnits = const Value.absent(),
     this.remainingBalanceMinorUnits = const Value.absent(),
@@ -6137,6 +6182,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     this.userId = const Value.absent(),
     required String providerName,
     this.providerId = const Value.absent(),
+    this.categoryId = const Value.absent(),
     required String name,
     required int principalMinorUnits,
     this.remainingBalanceMinorUnits = const Value.absent(),
@@ -6174,6 +6220,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     Expression<String>? userId,
     Expression<String>? providerName,
     Expression<String>? providerId,
+    Expression<String>? categoryId,
     Expression<String>? name,
     Expression<int>? principalMinorUnits,
     Expression<int>? remainingBalanceMinorUnits,
@@ -6205,6 +6252,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
       if (userId != null) 'user_id': userId,
       if (providerName != null) 'provider_name': providerName,
       if (providerId != null) 'provider_id': providerId,
+      if (categoryId != null) 'category_id': categoryId,
       if (name != null) 'name': name,
       if (principalMinorUnits != null)
         'principal_minor_units': principalMinorUnits,
@@ -6244,6 +6292,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     Value<String?>? userId,
     Value<String>? providerName,
     Value<String?>? providerId,
+    Value<String?>? categoryId,
     Value<String>? name,
     Value<int>? principalMinorUnits,
     Value<int>? remainingBalanceMinorUnits,
@@ -6275,6 +6324,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
       userId: userId ?? this.userId,
       providerName: providerName ?? this.providerName,
       providerId: providerId ?? this.providerId,
+      categoryId: categoryId ?? this.categoryId,
       name: name ?? this.name,
       principalMinorUnits: principalMinorUnits ?? this.principalMinorUnits,
       remainingBalanceMinorUnits:
@@ -6322,6 +6372,9 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
     }
     if (providerId.present) {
       map['provider_id'] = Variable<String>(providerId.value);
+    }
+    if (categoryId.present) {
+      map['category_id'] = Variable<String>(categoryId.value);
     }
     if (name.present) {
       map['name'] = Variable<String>(name.value);
@@ -6418,6 +6471,7 @@ class LoansCompanion extends UpdateCompanion<LoanRecord> {
           ..write('userId: $userId, ')
           ..write('providerName: $providerName, ')
           ..write('providerId: $providerId, ')
+          ..write('categoryId: $categoryId, ')
           ..write('name: $name, ')
           ..write('principalMinorUnits: $principalMinorUnits, ')
           ..write('remainingBalanceMinorUnits: $remainingBalanceMinorUnits, ')
@@ -20236,6 +20290,25 @@ final class $$CategoriesTableReferences
     );
   }
 
+  static MultiTypedResultKey<$LoansTable, List<LoanRecord>> _loansRefsTable(
+    _$AppDatabase db,
+  ) => MultiTypedResultKey.fromTable(
+    db.loans,
+    aliasName: 'categories__id__loans__category_id',
+  );
+
+  $$LoansTableProcessedTableManager get loansRefs {
+    final manager = $$LoansTableTableManager(
+      $_db,
+      $_db.loans,
+    ).filter((f) => f.categoryId.id.sqlEquals($_itemColumn<String>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_loansRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$TransactionsTable, List<TransactionRecord>>
   _transactionsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.transactions,
@@ -20353,6 +20426,31 @@ class $$CategoriesTableFilterComposer
           }) => $$BillsTableFilterComposer(
             $db: $db,
             $table: $db.bills,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> loansRefs(
+    Expression<bool> Function($$LoansTableFilterComposer f) f,
+  ) {
+    final $$LoansTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.loans,
+      getReferencedColumn: (t) => t.categoryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LoansTableFilterComposer(
+            $db: $db,
+            $table: $db.loans,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -20553,6 +20651,31 @@ class $$CategoriesTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> loansRefs<T extends Object>(
+    Expression<T> Function($$LoansTableAnnotationComposer a) f,
+  ) {
+    final $$LoansTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.loans,
+      getReferencedColumn: (t) => t.categoryId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$LoansTableAnnotationComposer(
+            $db: $db,
+            $table: $db.loans,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> transactionsRefs<T extends Object>(
     Expression<T> Function($$TransactionsTableAnnotationComposer a) f,
   ) {
@@ -20619,6 +20742,7 @@ class $$CategoriesTableTableManager
           CategoryRecord,
           PrefetchHooks Function({
             bool billsRefs,
+            bool loansRefs,
             bool transactionsRefs,
             bool expensesRefs,
           })
@@ -20701,6 +20825,7 @@ class $$CategoriesTableTableManager
           prefetchHooksCallback:
               ({
                 billsRefs = false,
+                loansRefs = false,
                 transactionsRefs = false,
                 expensesRefs = false,
               }) {
@@ -20708,6 +20833,7 @@ class $$CategoriesTableTableManager
                   db: db,
                   explicitlyWatchedTables: [
                     if (billsRefs) db.bills,
+                    if (loansRefs) db.loans,
                     if (transactionsRefs) db.transactions,
                     if (expensesRefs) db.expenses,
                   ],
@@ -20729,6 +20855,27 @@ class $$CategoriesTableTableManager
                                 table,
                                 p0,
                               ).billsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.categoryId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                      if (loansRefs)
+                        await $_getPrefetchedData<
+                          CategoryRecord,
+                          $CategoriesTable,
+                          LoanRecord
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CategoriesTableReferences
+                              ._loansRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CategoriesTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).loansRefs,
                           referencedItemsForCurrentItem:
                               (item, referencedItems) => referencedItems.where(
                                 (e) => e.categoryId == item.id,
@@ -20799,6 +20946,7 @@ typedef $$CategoriesTableProcessedTableManager =
       CategoryRecord,
       PrefetchHooks Function({
         bool billsRefs,
+        bool loansRefs,
         bool transactionsRefs,
         bool expensesRefs,
       })
@@ -24260,6 +24408,7 @@ typedef $$LoansTableCreateCompanionBuilder =
       Value<String?> userId,
       required String providerName,
       Value<String?> providerId,
+      Value<String?> categoryId,
       required String name,
       required int principalMinorUnits,
       Value<int> remainingBalanceMinorUnits,
@@ -24292,6 +24441,7 @@ typedef $$LoansTableUpdateCompanionBuilder =
       Value<String?> userId,
       Value<String> providerName,
       Value<String?> providerId,
+      Value<String?> categoryId,
       Value<String> name,
       Value<int> principalMinorUnits,
       Value<int> remainingBalanceMinorUnits,
@@ -24334,6 +24484,23 @@ final class $$LoansTableReferences
       $_db.loanProviders,
     ).filter((f) => f.id.sqlEquals($_column));
     final item = $_typedResult.readTableOrNull(_providerIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+
+  static $CategoriesTable _categoryIdTable(_$AppDatabase db) =>
+      db.categories.createAlias('loans__category_id__categories__id');
+
+  $$CategoriesTableProcessedTableManager? get categoryId {
+    final $_column = $_itemColumn<String>('category_id');
+    if ($_column == null) return null;
+    final manager = $$CategoriesTableTableManager(
+      $_db,
+      $_db.categories,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_categoryIdTable($_db));
     if (item == null) return manager;
     return ProcessedTableManager(
       manager.$state.copyWith(prefetchedData: [item]),
@@ -24570,6 +24737,29 @@ class $$LoansTableFilterComposer extends Composer<_$AppDatabase, $LoansTable> {
           }) => $$LoanProvidersTableFilterComposer(
             $db: $db,
             $table: $db.loanProviders,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
+  $$CategoriesTableFilterComposer get categoryId {
+    final $$CategoriesTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.categoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableFilterComposer(
+            $db: $db,
+            $table: $db.categories,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -24840,6 +25030,29 @@ class $$LoansTableOrderingComposer
     return composer;
   }
 
+  $$CategoriesTableOrderingComposer get categoryId {
+    final $$CategoriesTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.categoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableOrderingComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
   $$FinancialAccountsTableOrderingComposer get paymentAccountId {
     final $$FinancialAccountsTableOrderingComposer composer = $composerBuilder(
       composer: this,
@@ -25006,6 +25219,29 @@ class $$LoansTableAnnotationComposer
     return composer;
   }
 
+  $$CategoriesTableAnnotationComposer get categoryId {
+    final $$CategoriesTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.categoryId,
+      referencedTable: $db.categories,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CategoriesTableAnnotationComposer(
+            $db: $db,
+            $table: $db.categories,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+
   $$FinancialAccountsTableAnnotationComposer get paymentAccountId {
     final $$FinancialAccountsTableAnnotationComposer composer =
         $composerBuilder(
@@ -25121,6 +25357,7 @@ class $$LoansTableTableManager
           LoanRecord,
           PrefetchHooks Function({
             bool providerId,
+            bool categoryId,
             bool paymentAccountId,
             bool transactionsRefs,
             bool loanInstallmentsRefs,
@@ -25144,6 +25381,7 @@ class $$LoansTableTableManager
                 Value<String?> userId = const Value.absent(),
                 Value<String> providerName = const Value.absent(),
                 Value<String?> providerId = const Value.absent(),
+                Value<String?> categoryId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<int> principalMinorUnits = const Value.absent(),
                 Value<int> remainingBalanceMinorUnits = const Value.absent(),
@@ -25174,6 +25412,7 @@ class $$LoansTableTableManager
                 userId: userId,
                 providerName: providerName,
                 providerId: providerId,
+                categoryId: categoryId,
                 name: name,
                 principalMinorUnits: principalMinorUnits,
                 remainingBalanceMinorUnits: remainingBalanceMinorUnits,
@@ -25206,6 +25445,7 @@ class $$LoansTableTableManager
                 Value<String?> userId = const Value.absent(),
                 required String providerName,
                 Value<String?> providerId = const Value.absent(),
+                Value<String?> categoryId = const Value.absent(),
                 required String name,
                 required int principalMinorUnits,
                 Value<int> remainingBalanceMinorUnits = const Value.absent(),
@@ -25236,6 +25476,7 @@ class $$LoansTableTableManager
                 userId: userId,
                 providerName: providerName,
                 providerId: providerId,
+                categoryId: categoryId,
                 name: name,
                 principalMinorUnits: principalMinorUnits,
                 remainingBalanceMinorUnits: remainingBalanceMinorUnits,
@@ -25271,6 +25512,7 @@ class $$LoansTableTableManager
           prefetchHooksCallback:
               ({
                 providerId = false,
+                categoryId = false,
                 paymentAccountId = false,
                 transactionsRefs = false,
                 loanInstallmentsRefs = false,
@@ -25308,6 +25550,19 @@ class $$LoansTableTableManager
                                         ._providerIdTable(db),
                                     referencedColumn: $$LoansTableReferences
                                         ._providerIdTable(db)
+                                        .id,
+                                  )
+                                  as T;
+                        }
+                        if (categoryId) {
+                          state =
+                              state.withJoin(
+                                    currentTable: table,
+                                    currentColumn: table.categoryId,
+                                    referencedTable: $$LoansTableReferences
+                                        ._categoryIdTable(db),
+                                    referencedColumn: $$LoansTableReferences
+                                        ._categoryIdTable(db)
                                         .id,
                                   )
                                   as T;
@@ -25415,6 +25670,7 @@ typedef $$LoansTableProcessedTableManager =
       LoanRecord,
       PrefetchHooks Function({
         bool providerId,
+        bool categoryId,
         bool paymentAccountId,
         bool transactionsRefs,
         bool loanInstallmentsRefs,

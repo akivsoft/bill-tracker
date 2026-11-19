@@ -25,10 +25,8 @@ final class Money {
   String format({String locale = CurrencyConstants.defaultLocale}) {
     final NumberFormat formatter = NumberFormat.currency(
       locale: locale,
-      name: currencyCode,
-      symbol: currencyCode == CurrencyConstants.defaultCode
-          ? CurrencyConstants.defaultSymbol
-          : currencyCode,
+      name: CurrencyConstants.defaultCode,
+      symbol: CurrencyConstants.defaultSymbol,
       decimalDigits: 2,
     );
     return formatter.format(minorUnits / 100);

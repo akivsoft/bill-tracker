@@ -61,14 +61,6 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
     ('other', 'Other deposit account'),
   ];
 
-  static const List<String> _currencies = <String>[
-    'PHP',
-    'USD',
-    'SGD',
-    'EUR',
-    'GBP',
-  ];
-
   static const Map<String, IconData> _icons = <String, IconData>{
     'wallet': Icons.account_balance_wallet_outlined,
     'bank': Icons.account_balance_outlined,
@@ -106,9 +98,7 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
   @override
   void initState() {
     super.initState();
-    _currencyCode = _currencies.contains(widget.currencyCode)
-        ? widget.currencyCode
-        : 'PHP';
+    _currencyCode = 'PHP';
   }
 
   @override
@@ -237,6 +227,8 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
                       maxLength: 80,
@@ -271,6 +263,8 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
                     ),
                     const SizedBox(height: AppSpacing.medium),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: _providerController,
                       textCapitalization: TextCapitalization.words,
                       decoration: const InputDecoration(
@@ -281,6 +275,8 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
                     if (_type == 'custom') ...<Widget>[
                       const SizedBox(height: AppSpacing.medium),
                       TextFormField(
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                         controller: _customTypeController,
                         textCapitalization: TextCapitalization.words,
                         decoration: const InputDecoration(
@@ -290,27 +286,6 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
                       ),
                     ],
                     const SizedBox(height: AppSpacing.medium),
-                    DropdownButtonFormField<String>(
-                      initialValue: _currencyCode,
-                      decoration: const InputDecoration(labelText: 'Currency'),
-                      items: _currencies
-                          .map(
-                            (String currency) => DropdownMenuItem<String>(
-                              value: currency,
-                              child: Text(currency),
-                            ),
-                          )
-                          .toList(growable: false),
-                      onChanged: (String? value) => setState(() {
-                        _currencyCode = value ?? 'PHP';
-                        if (!_linkableAccounts.any(
-                          (FinancialAccount account) =>
-                              account.id == _linkedAccountId,
-                        )) {
-                          _linkedAccountId = null;
-                        }
-                      }),
-                    ),
                     if (_creditCard) ...<Widget>[
                       const SizedBox(height: AppSpacing.medium),
                       _moneyField(
@@ -396,6 +371,8 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
                           _type == 'debit_card') ...<Widget>[
                         const SizedBox(height: AppSpacing.medium),
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: _suffixController,
                           keyboardType: TextInputType.number,
                           maxLength: 4,
@@ -473,6 +450,8 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
                     ),
                     const SizedBox(height: AppSpacing.medium),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: _notesController,
                       minLines: 2,
                       maxLines: 4,
@@ -515,6 +494,7 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
     bool positive = false,
     bool signed = false,
   }) => TextFormField(
+    onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
     controller: controller,
     keyboardType: const TextInputType.numberWithOptions(
       decimal: true,

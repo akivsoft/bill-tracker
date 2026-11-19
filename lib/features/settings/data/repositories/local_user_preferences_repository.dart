@@ -48,7 +48,7 @@ class LocalUserPreferencesRepository implements UserPreferencesRepository {
         displayName?.trim().isEmpty == true ? null : displayName?.trim(),
       ),
       countryCode: Value<String>(countryCode),
-      currencyCode: Value<String>(currencyCode),
+      currencyCode: const Value<String>('PHP'),
       firstDayOfWeek: Value<int>(firstDayOfWeek),
       dateFormat: Value<String>(dateFormat),
     ),
@@ -99,7 +99,9 @@ class LocalUserPreferencesRepository implements UserPreferencesRepository {
     setupComplete: record.setupComplete,
     displayName: record.displayName,
     countryCode: record.countryCode,
-    currencyCode: record.currencyCode,
+    // Keep legacy preference values in storage, but expose PHP as the only
+    // supported currency in the current app version.
+    currencyCode: 'PHP',
     firstDayOfWeek: record.firstDayOfWeek,
     dateFormat: record.dateFormat,
     incomeFrequency: record.incomeFrequency,

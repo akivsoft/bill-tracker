@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
+import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -190,6 +191,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
               ),
             ),
             TextField(
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               controller: _search,
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
@@ -307,6 +310,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
               children: <Widget>[
                 Expanded(
                   child: TextField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: _minimumAmount,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -318,6 +323,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 const SizedBox(width: AppSpacing.small),
                 Expanded(
                   child: TextField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: _maximumAmount,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -462,11 +469,12 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
   Future<void> _addCategory() async {
     final TextEditingController name = TextEditingController();
-    final bool? save = await showDialog<bool>(
+    final bool? save = await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
         title: const Text('New expense category'),
         content: TextField(
+          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           controller: name,
           autofocus: true,
           maxLength: 80,
@@ -533,7 +541,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     String? accountId = expense?.paymentAccountId;
     String? attachmentReference = expense?.attachmentReference;
     final form = GlobalKey<FormState>();
-    final bool? saved = await showDialog<bool>(
+    final bool? saved = await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
@@ -550,6 +558,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                   spacing: AppSpacing.small,
                   children: <Widget>[
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: title,
                       decoration: const InputDecoration(labelText: 'Title'),
                       validator: (String? value) =>
@@ -558,6 +568,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                           : null,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: amount,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -633,6 +645,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       label: Text(DateFormat.yMMMd().format(date)),
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: notes,
                       decoration: const InputDecoration(
                         labelText: 'Description / notes (optional)',
@@ -640,6 +654,8 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       maxLines: 2,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: recurrence,
                       decoration: const InputDecoration(
                         labelText: 'Recurring schedule (optional)',

@@ -46,6 +46,20 @@ final StreamProvider<List<CategoryEntry>> billCategoriesProvider =
           .watchCategories(categoryType: 'bill'),
     );
 
+final StreamProvider<List<CategoryEntry>> loanCategoriesProvider =
+    StreamProvider<List<CategoryEntry>>(
+      (Ref ref) => ref
+          .watch(financialRepositoryProvider)
+          .watchCategories(categoryType: 'loan'),
+    );
+
+final StreamProvider<List<CategoryEntry>>
+loanCategoriesIncludingArchivedProvider = StreamProvider<List<CategoryEntry>>(
+  (Ref ref) => ref
+      .watch(financialRepositoryProvider)
+      .watchCategories(categoryType: 'loan', includeArchived: true),
+);
+
 final StreamProvider<List<CategoryEntry>>
 billCategoriesIncludingArchivedProvider = StreamProvider<List<CategoryEntry>>(
   (Ref ref) => ref

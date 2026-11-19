@@ -316,6 +316,7 @@ final class CreateLoanInput {
     required this.openedAt,
     this.userId,
     this.providerId,
+    this.categoryId,
     this.currencyCode = 'PHP',
     this.remainingBalanceMinorUnits,
     this.totalRepaymentMinorUnits,
@@ -334,6 +335,7 @@ final class CreateLoanInput {
   final String name;
   final String providerName;
   final String? providerId;
+  final String? categoryId;
   final int principalMinorUnits;
   final int? remainingBalanceMinorUnits;
   final int? totalRepaymentMinorUnits;
@@ -385,6 +387,7 @@ final class UpdateLoanInput {
     required this.installmentAmountMinorUnits,
     required this.totalInstallments,
     this.providerId,
+    this.categoryId,
     this.endDate,
     this.durationMonths,
     this.paymentAccountId,
@@ -395,6 +398,7 @@ final class UpdateLoanInput {
   final String name;
   final String providerName;
   final String? providerId;
+  final String? categoryId;
   final int principalMinorUnits;
   final int remainingBalanceMinorUnits;
   final int totalRepaymentMinorUnits;

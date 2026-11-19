@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
+import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/core/widgets/app_card.dart';
 import 'package:bill_tracker/core/widgets/app_loading.dart';
@@ -60,6 +61,7 @@ class _NewBillCategoryDialogState extends State<_NewBillCategoryDialog> {
       child: Form(
         key: _form,
         child: TextFormField(
+          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
           controller: _name,
           maxLength: 80,
           autofocus: true,
@@ -570,6 +572,8 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   ),
                   const SizedBox(height: AppSpacing.medium),
                   TextField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: _search,
                     decoration: const InputDecoration(
                       prefixIcon: Icon(Icons.search),
@@ -885,6 +889,9 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     }
   }
 
+  Future<T?> _showDialogAndWaitForExit<T>(WidgetBuilder builder) =>
+      showDialogAndWaitForExit<T>(context: context, builder: builder);
+
   Future<void> _editBill(
     List<BillEntry> bills,
     List<CategoryEntry> categories,
@@ -932,212 +939,198 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     String? categoryNotice;
     String? accountId = (bill ?? initial)?.paymentAccountId;
     bool allocation = (bill ?? initial)?.automaticAllocation ?? false;
-    
-Future<void> selectCategory(
-  BuildContext dialogContext,
-  StateSetter setDialogState,
-) async {
-  final Set<String> removedCategoryIds = <String>{};
-  final Map<String, CategoryEntry> createdInForm =
-      <String, CategoryEntry>{};
 
-  final Stream<List<CategoryEntry>> categoriesStream =
-      _categoryStream();
+    Future<void> selectCategory(
+      BuildContext dialogContext,
+      StateSetter setDialogState,
+    ) async {
+      final Set<String> removedCategoryIds = <String>{};
+      final Map<String, CategoryEntry> createdInForm =
+          <String, CategoryEntry>{};
 
-  final String? selected = await showDialog<String>(
-    context: context,
-    useRootNavigator: true,
-    builder: (BuildContext pickerContext) {
-      return StatefulBuilder(
-        builder: (BuildContext context, StateSetter setPickerState) {
-          return AlertDialog(
-            title: const Text('Choose bill category'),
-            content: SizedBox(
-              width: 400,
-              height: MediaQuery.sizeOf(context).height * 0.45,
-              child: StreamBuilder<List<CategoryEntry>>(
-                stream: categoriesStream,
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('Could not load categories.'),
-                          TextButton(
-                            onPressed: () {
-                              setPickerState(() {});
-                            },
-                            child: const Text('Retry'),
+      final Stream<List<CategoryEntry>> categoriesStream = _categoryStream();
+
+      final String? selected = await showDialog<String>(
+        context: context,
+        useRootNavigator: true,
+        builder: (BuildContext pickerContext) {
+          return StatefulBuilder(
+            builder: (BuildContext context, StateSetter setPickerState) {
+              return AlertDialog(
+                title: const Text('Choose bill category'),
+                content: SizedBox(
+                  width: 400,
+                  height: MediaQuery.sizeOf(context).height * 0.45,
+                  child: StreamBuilder<List<CategoryEntry>>(
+                    stream: categoriesStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text('Could not load categories.'),
+                              TextButton(
+                                onPressed: () {
+                                  setPickerState(() {});
+                                },
+                                child: const Text('Retry'),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final Map<String, CategoryEntry> categoryMap = {
-                    for (final item
-                        in (snapshot.data ?? formCategories))
-                      if (!item.isArchived &&
-                          !removedCategoryIds.contains(item.id))
-                        item.id: item,
-                    for (final item in createdInForm.values)
-                      if (!removedCategoryIds.contains(item.id))
-                        item.id: item,
-                  };
-
-                  final List<CategoryEntry> items =
-                      categoryMap.values.toList()
-                        ..sort((a, b) {
-                          if (a.isDefault != b.isDefault) {
-                            return a.isDefault ? 1 : -1;
-                          }
-                          return a.name.toLowerCase().compareTo(
-                            b.name.toLowerCase(),
-                          );
-                        });
-
-                  if (snapshot.connectionState ==
-                          ConnectionState.waiting &&
-                      items.isEmpty) {
-                    return const Center(
-                      child: CircularProgressIndicator(),
-                    );
-                  }
-
-                  return ListView(
-                    children: [
-                      ListTile(
-                        leading: Icon(
-                          categoryId == null
-                              ? Icons.check_circle
-                              : Icons.circle_outlined,
-                        ),
-                        title: const Text('Other / none'),
-                        selected: categoryId == null,
-                        onTap: () =>
-                            Navigator.pop(pickerContext, ''),
-                      ),
-                      if (items.isEmpty)
-                        const ListTile(
-                          title: Text('No bill categories available.'),
-                        ),
-                      ...items.map((item) {
-                        final bool isSelected = categoryId == item.id;
-
-                        return ListTile(
-                          leading: Icon(
-                            isSelected
-                                ? Icons.check_circle
-                                : Icons.circle_outlined,
-                          ),
-                          title: Text(item.name),
-                          selected: isSelected,
-                          trailing: item.isDefault
-                              ? null
-                              : TextButton(
-                                  onPressed: () async {
-                                    final bool removed =
-                                        await _removeCategory(item, bills);
-
-                                    if (!removed ||
-                                        !pickerContext.mounted) {
-                                      return;
-                                    }
-
-                                    removedCategoryIds.add(item.id);
-                                    createdInForm.remove(item.id);
-
-                                    formCategories.removeWhere(
-                                      (category) =>
-                                          category.id == item.id,
-                                    );
-
-                                    if (categoryId == item.id) {
-                                      categoryId = null;
-                                      setDialogState(() {});
-                                    }
-
-                                    setPickerState(() {});
-                                  },
-                                  child: const Text('Remove'),
-                                ),
-                          onTap: () =>
-                              Navigator.pop(pickerContext, item.id),
                         );
-                      }),
-                      const Divider(),
-                      ListTile(
-                        leading: const Icon(Icons.add_rounded),
-                        title: const Text('Create bill category'),
-                        onTap: () async {
-                          final created = await _addCategory(
-                            formCategories,
-                          );
+                      }
 
-                          if (created == null ||
-                              !pickerContext.mounted) {
-                            return;
-                          }
+                      final Map<String, CategoryEntry> categoryMap = {
+                        for (final item in (snapshot.data ?? formCategories))
+                          if (!item.isArchived &&
+                              !removedCategoryIds.contains(item.id))
+                            item.id: item,
+                        for (final item in createdInForm.values)
+                          if (!removedCategoryIds.contains(item.id))
+                            item.id: item,
+                      };
 
-                          createdInForm[created.id] = created;
-
-                          if (!formCategories.any(
-                            (item) => item.id == created.id,
-                          )) {
-                            formCategories.add(created);
-                          }
-
-                          setDialogState(() {
-                            categoryId = created.id;
-                            categoryNotice = null;
+                      final List<CategoryEntry> items =
+                          categoryMap.values.toList()..sort((a, b) {
+                            if (a.isDefault != b.isDefault) {
+                              return a.isDefault ? 1 : -1;
+                            }
+                            return a.name.toLowerCase().compareTo(
+                              b.name.toLowerCase(),
+                            );
                           });
 
-                          Navigator.pop(pickerContext, created.id);
-                        },
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(pickerContext),
-                child: const Text('Cancel'),
-              ),
-            ],
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          items.isEmpty) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      return ListView(
+                        children: [
+                          ListTile(
+                            leading: Icon(
+                              categoryId == null
+                                  ? Icons.check_circle
+                                  : Icons.circle_outlined,
+                            ),
+                            title: const Text('Other / none'),
+                            selected: categoryId == null,
+                            onTap: () => Navigator.pop(pickerContext, ''),
+                          ),
+                          if (items.isEmpty)
+                            const ListTile(
+                              title: Text('No bill categories available.'),
+                            ),
+                          ...items.map((item) {
+                            final bool isSelected = categoryId == item.id;
+
+                            return ListTile(
+                              leading: Icon(
+                                isSelected
+                                    ? Icons.check_circle
+                                    : Icons.circle_outlined,
+                              ),
+                              title: Text(item.name),
+                              selected: isSelected,
+                              trailing: item.isDefault
+                                  ? null
+                                  : TextButton(
+                                      onPressed: () async {
+                                        final bool removed =
+                                            await _removeCategory(item, bills);
+
+                                        if (!removed ||
+                                            !pickerContext.mounted) {
+                                          return;
+                                        }
+
+                                        removedCategoryIds.add(item.id);
+                                        createdInForm.remove(item.id);
+
+                                        formCategories.removeWhere(
+                                          (category) => category.id == item.id,
+                                        );
+
+                                        if (categoryId == item.id) {
+                                          categoryId = null;
+                                          setDialogState(() {});
+                                        }
+
+                                        setPickerState(() {});
+                                      },
+                                      child: const Text('Remove'),
+                                    ),
+                              onTap: () =>
+                                  Navigator.pop(pickerContext, item.id),
+                            );
+                          }),
+                          const Divider(),
+                          ListTile(
+                            leading: const Icon(Icons.add_rounded),
+                            title: const Text('Create bill category'),
+                            onTap: () async {
+                              final created = await _addCategory(
+                                formCategories,
+                              );
+
+                              if (created == null || !pickerContext.mounted) {
+                                return;
+                              }
+
+                              createdInForm[created.id] = created;
+
+                              if (!formCategories.any(
+                                (item) => item.id == created.id,
+                              )) {
+                                formCategories.add(created);
+                              }
+
+                              setDialogState(() {
+                                categoryId = created.id;
+                                categoryNotice = null;
+                              });
+
+                              Navigator.pop(pickerContext, created.id);
+                            },
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(pickerContext),
+                    child: const Text('Cancel'),
+                  ),
+                ],
+              );
+            },
           );
         },
       );
-    },
-  );
 
-  if (!mounted || selected == null) return;
+      if (!mounted || selected == null) return;
 
-  final CategoryEntry? selectedCategory = formCategories
-      .where((item) => item.id == selected)
-      .firstOrNull;
+      final CategoryEntry? selectedCategory = formCategories
+          .where((item) => item.id == selected)
+          .firstOrNull;
 
-  setDialogState(() {
-    if (selectedCategory != null &&
-        !formCategories.any(
-          (item) => item.id == selectedCategory.id,
-        )) {
-      formCategories.add(selectedCategory);
+      setDialogState(() {
+        if (selectedCategory != null &&
+            !formCategories.any((item) => item.id == selectedCategory.id)) {
+          formCategories.add(selectedCategory);
+        }
+
+        categoryId = selected.isEmpty ? null : selected;
+        categoryNotice = null;
+      });
     }
 
-    categoryId = selected.isEmpty ? null : selected;
-    categoryNotice = null;
-  });
-}
-
     final form = GlobalKey<FormState>();
-    final bool? save = await showDialog<bool>(
-  context: context,
-  useRootNavigator: true,
-  barrierDismissible: true,
-  builder: (BuildContext dialogContext) => StatefulBuilder(
+    final bool? save = await _showDialogAndWaitForExit<bool>(
+      (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
           title: Text(
             bill == null
@@ -1154,6 +1147,8 @@ Future<void> selectCategory(
                   spacing: AppSpacing.small,
                   children: <Widget>[
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: name,
                       decoration: const InputDecoration(labelText: 'Bill name'),
                       validator: (String? value) =>
@@ -1162,6 +1157,8 @@ Future<void> selectCategory(
                           : null,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: amount,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -1223,7 +1220,7 @@ Future<void> selectCategory(
                           ),
                         ),
                       ),
-                    
+
                     DropdownButtonFormField<String>(
                       initialValue: frequency,
                       isExpanded: true,
@@ -1252,6 +1249,8 @@ Future<void> selectCategory(
                     ),
                     if (frequency == 'custom')
                       TextFormField(
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                         controller: customDays,
                         keyboardType: TextInputType.number,
                         decoration: const InputDecoration(
@@ -1316,12 +1315,16 @@ Future<void> selectCategory(
                           setDialogState(() => accountId = value),
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: provider,
                       decoration: const InputDecoration(
                         labelText: 'Provider (optional)',
                       ),
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: reference,
                       decoration: const InputDecoration(
                         labelText: 'Reference number (optional)',
@@ -1365,6 +1368,8 @@ Future<void> selectCategory(
                           setDialogState(() => allocation = value),
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: notes,
                       maxLines: 2,
                       decoration: const InputDecoration(
@@ -1393,7 +1398,7 @@ Future<void> selectCategory(
         ),
       ),
     );
-    
+
     if (save == true && mounted) {
       final String savedFrequency = frequency == 'custom'
           ? 'custom:${int.parse(customDays.text)}'
@@ -1481,7 +1486,7 @@ Future<void> selectCategory(
         : eligible.first.id;
     DateTime paidAt = DateTime.now();
     final form = GlobalKey<FormState>();
-    final bool? confirm = await showDialog<bool>(
+    final bool? confirm = await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
@@ -1501,6 +1506,8 @@ Future<void> selectCategory(
                     'Scheduled ${Money(occurrence.bill.amountMinorUnits, currencyCode: occurrence.bill.currencyCode).format()} · Remaining ${Money(remaining, currencyCode: occurrence.bill.currencyCode).format()}',
                   ),
                   TextFormField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: amount,
                     keyboardType: const TextInputType.numberWithOptions(
                       decimal: true,
@@ -1554,6 +1561,8 @@ Future<void> selectCategory(
                     ),
                   ),
                   TextField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: notes,
                     decoration: const InputDecoration(
                       labelText: 'Notes (optional)',

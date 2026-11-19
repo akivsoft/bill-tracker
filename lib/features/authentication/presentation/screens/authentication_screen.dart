@@ -128,6 +128,8 @@ class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
                     child: Column(
                       children: <Widget>[
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           textInputAction: forgot
@@ -143,6 +145,8 @@ class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
                         if (!forgot) ...<Widget>[
                           const SizedBox(height: AppSpacing.medium),
                           TextFormField(
+                            onTapOutside: (_) =>
+                                FocusManager.instance.primaryFocus?.unfocus(),
                             controller: _passwordController,
                             obscureText: !_passwordVisible,
                             textInputAction: signUp
@@ -181,6 +185,8 @@ class _AuthenticationScreenState extends ConsumerState<AuthenticationScreen> {
                           if (signUp) ...<Widget>[
                             const SizedBox(height: AppSpacing.medium),
                             TextFormField(
+                              onTapOutside: (_) =>
+                                  FocusManager.instance.primaryFocus?.unfocus(),
                               controller: _confirmPasswordController,
                               obscureText: !_confirmationVisible,
                               validator: (String? value) =>
@@ -350,6 +356,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     child: Column(
                       children: <Widget>[
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: _passwordController,
                           obscureText: !_passwordVisible,
                           validator: validatePassword,
@@ -369,6 +377,8 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                         ),
                         const SizedBox(height: AppSpacing.medium),
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: _confirmController,
                           obscureText: true,
                           validator: (String? value) =>

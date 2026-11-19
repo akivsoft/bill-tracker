@@ -1,4 +1,5 @@
 import 'package:bill_tracker/data/local/database/tables/financial_accounts.dart';
+import 'package:bill_tracker/data/local/database/tables/categories.dart';
 import 'package:bill_tracker/data/local/database/tables/transactions.dart';
 import 'package:drift/drift.dart';
 
@@ -34,6 +35,7 @@ class Loans extends Table {
   TextColumn get providerName => text().withLength(min: 1, max: 100)();
   TextColumn get providerId =>
       text().nullable().references(LoanProviders, #id)();
+  TextColumn get categoryId => text().nullable().references(Categories, #id)();
   TextColumn get name => text().withLength(min: 1, max: 100)();
   IntColumn get principalMinorUnits => integer()();
   IntColumn get remainingBalanceMinorUnits =>

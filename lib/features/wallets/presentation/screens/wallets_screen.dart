@@ -30,6 +30,9 @@ class WalletsScreen extends ConsumerStatefulWidget {
 
 class _WalletsScreenState extends ConsumerState<WalletsScreen> {
   String? _currencyCode;
+  String? _displayedAccountId;
+  int _incomingPageDirection = 1;
+  double _horizontalDragDistance = 0;
   String _status = 'active';
   WalletAccountGroup _group = WalletAccountGroup.all;
   WalletSortOrder _sort = WalletSortOrder.name;
@@ -198,7 +201,10 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.medium),
-                  Row(
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: AppSpacing.small,
+                    runSpacing: AppSpacing.xSmall,
                     children: <Widget>[
                       Text(
                         'Currency',
@@ -218,7 +224,6 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                         onChanged: (String? value) =>
                             setState(() => _currencyCode = value),
                       ),
-                      const Spacer(),
                       Text(
                         '${activeCurrentCurrency.length} active',
                         style: Theme.of(context).textTheme.labelLarge,
@@ -252,7 +257,7 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               crossAxisSpacing: AppSpacing.small,
                               mainAxisSpacing: AppSpacing.small,
-                              childAspectRatio: columns == 2 ? 1.65 : 1.7,
+                              childAspectRatio: columns == 2 ? 1.3 : 1.55,
                               children: <Widget>[
                                 _compactSummary(
                                   'Cash',
@@ -302,15 +307,24 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                     onAction: () => _addAccount(accounts, currencyCode),
                   ),
                   const SizedBox(height: AppSpacing.small),
-                  SegmentedButton<String>(
-                    segments: const <ButtonSegment<String>>[
-                      ButtonSegment(value: 'active', label: Text('Active')),
-                      ButtonSegment(value: 'inactive', label: Text('Inactive')),
-                      ButtonSegment(value: 'archived', label: Text('Archived')),
-                    ],
-                    selected: <String>{_status},
-                    onSelectionChanged: (Set<String> value) =>
-                        setState(() => _status = value.first),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SegmentedButton<String>(
+                      segments: const <ButtonSegment<String>>[
+                        ButtonSegment(value: 'active', label: Text('Active')),
+                        ButtonSegment(
+                          value: 'inactive',
+                          label: Text('Inactive'),
+                        ),
+                        ButtonSegment(
+                          value: 'archived',
+                          label: Text('Archived'),
+                        ),
+                      ],
+                      selected: <String>{_status},
+                      onSelectionChanged: (Set<String> value) =>
+                          setState(() => _status = value.first),
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.medium),
                   SingleChildScrollView(
@@ -356,16 +370,136 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
                           setState(() => _sort = value ?? WalletSortOrder.name),
                     ),
                   ),
-                  ..._visibleAccounts(accounts, currencyCode).map(
-                    (FinancialAccount account) => Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.small),
-                      child: AccountCard(
-                        account: account,
-                        onTap: () =>
-                            context.push(RouteNames.walletAccount(account.id)),
-                      ),
+                  if (_visibleAccounts(
+                    accounts,
+                    currencyCode,
+                  ).isNotEmpty) ...<Widget>[
+                    Builder(
+                      builder: (BuildContext context) {
+                        final List<FinancialAccount> visible = _visibleAccounts(
+                          accounts,
+                          currencyCode,
+                        );
+                        final int selectedIndex = visible.indexWhere(
+                          (FinancialAccount account) =>
+                              account.id == _displayedAccountId,
+                        );
+                        final int currentIndex = selectedIndex < 0
+                            ? 0
+                            : selectedIndex;
+                        final FinancialAccount current = visible[currentIndex];
+                        return Column(
+                          children: <Widget>[
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onHorizontalDragStart: (_) =>
+                                  _horizontalDragDistance = 0,
+                              onHorizontalDragUpdate:
+                                  (DragUpdateDetails details) {
+                                    _horizontalDragDistance +=
+                                        details.primaryDelta ?? 0;
+                                  },
+                              onHorizontalDragEnd: (DragEndDetails details) {
+                                final double velocity =
+                                    details.primaryVelocity ?? 0;
+                                final double drag = _horizontalDragDistance;
+                                _horizontalDragDistance = 0;
+                                if (drag.abs() < 35 && velocity.abs() < 80) {
+                                  return;
+                                }
+                                final bool movingForward = drag.abs() >= 35
+                                    ? drag < 0
+                                    : velocity < 0;
+                                final int nextIndex = movingForward
+                                    ? currentIndex + 1
+                                    : currentIndex - 1;
+                                if (nextIndex < 0 ||
+                                    nextIndex >= visible.length) {
+                                  return;
+                                }
+                                setState(() {
+                                  _incomingPageDirection = movingForward
+                                      ? 1
+                                      : -1;
+                                  _displayedAccountId = visible[nextIndex].id;
+                                });
+                              },
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder:
+                                    (
+                                      Widget child,
+                                      Animation<double> animation,
+                                    ) {
+                                      final bool entering =
+                                          child.key ==
+                                          ValueKey<String>(current.id);
+                                      final double direction = entering
+                                          ? _incomingPageDirection.toDouble()
+                                          : -_incomingPageDirection.toDouble();
+                                      return SlideTransition(
+                                        position: animation.drive(
+                                          Tween<Offset>(
+                                            begin: Offset(direction * 0.08, 0),
+                                            end: Offset.zero,
+                                          ).chain(
+                                            CurveTween(
+                                              curve: Curves.easeOutCubic,
+                                            ),
+                                          ),
+                                        ),
+                                        child: child,
+                                      );
+                                    },
+                                child: AccountCard(
+                                  key: ValueKey<String>(current.id),
+                                  account: current,
+                                  onTap: () => context.push(
+                                    RouteNames.walletAccount(current.id),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.small),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List<Widget>.generate(visible.length, (
+                                int index,
+                              ) {
+                                final bool selected = index == currentIndex;
+                                return Semantics(
+                                  label:
+                                      'Wallet ${index + 1} of ${visible.length}',
+                                  selected: selected,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeInOut,
+                                    width: selected ? 22 : 8,
+                                    height: 8,
+                                    margin: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: selected
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.primary
+                                          : Theme.of(
+                                              context,
+                                            ).colorScheme.outlineVariant,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                );
+                              }),
+                            ),
+                          ],
+                        );
+                      },
                     ),
-                  ),
+                  ],
                   if (_visibleAccounts(accounts, currencyCode).isEmpty)
                     AppCard(
                       child: EmptyState(

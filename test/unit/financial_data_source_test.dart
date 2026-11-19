@@ -1,4 +1,6 @@
 import 'package:bill_tracker/data/local/database/app_database.dart';
+import 'package:bill_tracker/data/local/database/tables/categories.dart';
+import 'package:bill_tracker/data/local/database/tables/loans.dart';
 import 'package:bill_tracker/data/local/datasources/local_financial_data_source.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
@@ -560,6 +562,36 @@ void main() {
           await database.select(database.billPayments).get(),
           hasLength(1),
         );
+      },
+    );
+
+    test(
+      'loan category remains attached when custom category is archived',
+      () async {
+        final String categoryId = await dataSource.createCategory(
+          const CreateCategoryInput(name: 'Family loan', categoryType: 'loan'),
+        );
+        final String loanId = await dataSource.createLoan(
+          CreateLoanInput(
+            name: 'Family borrowing',
+            providerName: 'Personal Loans',
+            principalMinorUnits: php1000,
+            openedAt: now,
+            categoryId: categoryId,
+          ),
+        );
+
+        await dataSource.archiveCategory(categoryId);
+
+        final LoanRecord loan = await (database.select(
+          database.loans,
+        )..where((Loans row) => row.id.equals(loanId))).getSingle();
+        final CategoryRecord category = await (database.select(
+          database.categories,
+        )..where((Categories row) => row.id.equals(categoryId))).getSingle();
+        expect(loan.categoryId, categoryId);
+        expect(category.isDefault, isFalse);
+        expect(category.archivedAt, isNotNull);
       },
     );
 

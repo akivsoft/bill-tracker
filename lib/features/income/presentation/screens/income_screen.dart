@@ -1,5 +1,6 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
+import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -153,6 +154,8 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
               ),
             ),
             TextField(
+              onTapOutside: (_) =>
+                  FocusManager.instance.primaryFocus?.unfocus(),
               controller: _search,
               decoration: const InputDecoration(
                 prefixIcon: Icon(Icons.search),
@@ -341,7 +344,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
     String frequency = income?.frequency ?? 'one_time';
     String? accountId = income?.receivingAccountId;
     final form = GlobalKey<FormState>();
-    final bool? saved = await showDialog<bool>(
+    final bool? saved = await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>
@@ -358,6 +361,8 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: source,
                           decoration: const InputDecoration(
                             labelText: 'Title / source',
@@ -368,6 +373,8 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                               : null,
                         ),
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: amount,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
@@ -386,6 +393,8 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                           },
                         ),
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: category,
                           decoration: const InputDecoration(
                             labelText: 'Income category',
@@ -462,6 +471,8 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                           ),
                         ),
                         TextFormField(
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
                           controller: notes,
                           decoration: const InputDecoration(
                             labelText: 'Notes (optional)',

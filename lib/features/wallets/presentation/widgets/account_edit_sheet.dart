@@ -174,6 +174,8 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
                 ),
                 children: <Widget>[
                   TextFormField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: _name,
                     textCapitalization: TextCapitalization.words,
                     validator: (String? value) =>
@@ -184,6 +186,8 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
                   ),
                   const SizedBox(height: AppSpacing.medium),
                   TextFormField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: _provider,
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
@@ -194,6 +198,8 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
                       _debitCard) ...<Widget>[
                     const SizedBox(height: AppSpacing.medium),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: _suffix,
                       keyboardType: TextInputType.number,
                       maxLength: 4,
@@ -238,6 +244,8 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
                   if (widget.account.accountType == 'custom') ...<Widget>[
                     const SizedBox(height: AppSpacing.medium),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: _customType,
                       decoration: const InputDecoration(
                         labelText: 'Custom account type',
@@ -276,6 +284,8 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
                   ],
                   const SizedBox(height: AppSpacing.medium),
                   TextFormField(
+                    onTapOutside: (_) =>
+                        FocusManager.instance.primaryFocus?.unfocus(),
                     controller: _notes,
                     minLines: 2,
                     maxLines: 4,
@@ -369,6 +379,7 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
     String label, {
     bool requiredPositive = false,
   }) => TextFormField(
+    onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
     controller: controller,
     keyboardType: const TextInputType.numberWithOptions(decimal: true),
     validator: (String? value) {

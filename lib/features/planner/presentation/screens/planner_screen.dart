@@ -1,5 +1,6 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
+import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/bills/domain/services/bill_schedule_calculator.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
@@ -557,13 +558,11 @@ class PlannerScreen extends ConsumerWidget {
     );
     final notes = TextEditingController(text: existing?.notes ?? '');
     String frequency = existing?.frequency ?? 'monthly';
-    String currency =
-        existing?.currencyCode ??
-        (accounts.isEmpty ? 'PHP' : accounts.first.currencyCode);
+    const String currency = 'PHP';
     String? accountId = existing?.receivingAccountId;
     DateTime payday = existing?.paydayDate ?? DateTime.now();
     final key = GlobalKey<FormState>();
-    final bool? save = await showDialog<bool>(
+    final bool? save = await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
@@ -579,6 +578,8 @@ class PlannerScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: <Widget>[
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: name,
                       decoration: const InputDecoration(
                         labelText: 'Income source',
@@ -588,6 +589,8 @@ class PlannerScreen extends ConsumerWidget {
                           : null,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: amount,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -639,22 +642,6 @@ class PlannerScreen extends ConsumerWidget {
                         },
                       ),
                     ),
-                    DropdownButtonFormField<String>(
-                      initialValue: currency,
-                      decoration: const InputDecoration(labelText: 'Currency'),
-                      items:
-                          accounts
-                              .map((a) => a.currencyCode)
-                              .toSet()
-                              .map(
-                                (String c) =>
-                                    DropdownMenuItem(value: c, child: Text(c)),
-                              )
-                              .toList()
-                            ..addIfEmpty(currency),
-                      onChanged: (String? value) =>
-                          setStateDialog(() => currency = value ?? currency),
-                    ),
                     DropdownButtonFormField<String?>(
                       initialValue: accountId,
                       decoration: const InputDecoration(
@@ -683,6 +670,8 @@ class PlannerScreen extends ConsumerWidget {
                       onChanged: (String? v) => accountId = v,
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: notes,
                       decoration: const InputDecoration(labelText: 'Notes'),
                     ),
@@ -772,7 +761,7 @@ class PlannerScreen extends ConsumerWidget {
     String? goalId = existing?.relatedSavingsGoalId;
     DateTime date = existing?.periodDate ?? initialDate ?? schedule.paydayDate;
     final key = GlobalKey<FormState>();
-    final bool? save = await showDialog<bool>(
+    final bool? save = await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
@@ -805,6 +794,8 @@ class PlannerScreen extends ConsumerWidget {
                       }),
                     ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: amount,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -967,6 +958,8 @@ class PlannerScreen extends ConsumerWidget {
                             setStateDialog(() => goalId = v),
                       ),
                     TextFormField(
+                      onTapOutside: (_) =>
+                          FocusManager.instance.primaryFocus?.unfocus(),
                       controller: notes,
                       decoration: const InputDecoration(labelText: 'Notes'),
                     ),
@@ -1161,12 +1154,4 @@ class PlannerScreen extends ConsumerWidget {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
-}
-
-extension _DropdownListExtension<T> on List<DropdownMenuItem<T>> {
-  void addIfEmpty(T value) {
-    if (isEmpty) {
-      add(DropdownMenuItem<T>(value: value, child: Text(value.toString())));
-    }
-  }
 }

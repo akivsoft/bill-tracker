@@ -20,6 +20,7 @@ class AppTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => TextFormField(
+    onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
     controller: controller,
     validator: validator,
     keyboardType: keyboardType,

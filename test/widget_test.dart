@@ -405,10 +405,12 @@ void main() {
     await tester.tap(find.text('Created after form opened'));
     await tester.pumpAndSettle();
     expect(find.text('Choose bill category'), findsOneWidget);
-    final Finder selectedCategoryTile = find.ancestor(
-      of: find.text('Created after form opened').last,
-      matching: find.byType(ListTile),
-    ).first;
+    final Finder selectedCategoryTile = find
+        .ancestor(
+          of: find.text('Created after form opened').last,
+          matching: find.byType(ListTile),
+        )
+        .first;
     expect(
       find.descendant(
         of: selectedCategoryTile,
@@ -493,6 +495,164 @@ void main() {
       await _disposeApp(tester, database);
     },
   );
+
+  testWidgets('Add Bill text fields survive focus and keyboard changes', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppDatabase database = AppDatabase(NativeDatabase.memory());
+    final LocalUserPreferencesRepository preferences =
+        LocalUserPreferencesRepository(database);
+    await preferences.load();
+    await preferences.setOnboardingComplete(true);
+    await preferences.setSetupComplete(true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: const MyFinanceApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    NavigationBar navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    navigationBar.onDestinationSelected!(1);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog).last,
+        matching: find.text('Add bill'),
+      ),
+      findsOneWidget,
+    );
+
+    await _exerciseVisibleTextFields(tester);
+    await tester.ensureVisible(
+      find.byType(DropdownButtonFormField<String>).first,
+    );
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('custom').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Repeat every N days'), findsOneWidget);
+    await _exerciseVisibleTextFields(tester);
+    expect(tester.takeException(), isNull);
+
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog).last,
+        matching: find.text('Add bill'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await _disposeApp(tester, database);
+  });
+
+  testWidgets('Add Loan text fields survive focus and keyboard changes', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppDatabase database = AppDatabase(NativeDatabase.memory());
+    final LocalUserPreferencesRepository preferences =
+        LocalUserPreferencesRepository(database);
+    await preferences.load();
+    await preferences.setOnboardingComplete(true);
+    await preferences.setSetupComplete(true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: const MyFinanceApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    NavigationBar navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    navigationBar.onDestinationSelected!(3);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog).last,
+        matching: find.text('Add loan'),
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.byTooltip('Create category'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AlertDialog).last,
+        matching: find.byType(TextFormField),
+      ),
+      'Family loan',
+    );
+    await tester.tap(find.text('Create').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Family loan'), findsOneWidget);
+    await tester.tap(find.byTooltip('Remove custom category'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Family loan').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Family loan'), findsNothing);
+
+    await _exerciseVisibleTextFields(tester);
+    await tester.ensureVisible(
+      find.byType(DropdownButtonFormField<String>).first,
+    );
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Custom').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Custom interval (days)'), findsOneWidget);
+    await _exerciseVisibleTextFields(tester);
+    expect(tester.takeException(), isNull);
+
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(AlertDialog).last,
+        matching: find.text('Add loan'),
+      ),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await _disposeApp(tester, database);
+  });
 
   testWidgets('loan overview and More expenses fit a compact viewport', (
     WidgetTester tester,
@@ -640,6 +800,28 @@ Future<void> _disposeApp(WidgetTester tester, AppDatabase database) async {
   await tester.pumpWidget(const SizedBox.shrink());
   await tester.pump(const Duration(milliseconds: 1));
   await database.close();
+}
+
+Future<void> _exerciseVisibleTextFields(WidgetTester tester) async {
+  final Finder fields = find.byType(TextFormField);
+  final int fieldCount = fields.evaluate().length;
+  expect(fieldCount, greaterThan(0));
+
+  for (int index = 0; index < fieldCount; index++) {
+    final Finder field = fields.at(index);
+    await tester.ensureVisible(field);
+    await tester.tap(field);
+    await tester.pump();
+    await tester.enterText(field, '1');
+    await tester.pump();
+    tester.testTextInput.hide();
+    await tester.pumpAndSettle();
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'Text field $index should survive keyboard dismissal.',
+    );
+  }
 }
 
 class _CategoryStreamRepository implements FinancialRepository {

@@ -62,6 +62,7 @@ class _BackupScreenState extends ConsumerState<BackupScreen> {
           ),
           const SizedBox(height: AppSpacing.small),
           TextField(
+            onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
             controller: _backupController,
             minLines: 5,
             maxLines: 12,
