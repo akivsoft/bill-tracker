@@ -1,5 +1,6 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:flutter/material.dart';
@@ -8,11 +9,13 @@ import 'package:flutter/services.dart';
 class AccountEntrySheet extends StatefulWidget {
   const AccountEntrySheet({
     required this.currencyCode,
+    required this.onSave,
     this.availableAccounts = const <FinancialAccount>[],
     super.key,
   });
 
   final String currencyCode;
+  final Future<void> Function(CreateAccountInput input) onSave;
   final List<FinancialAccount> availableAccounts;
 
   @override
@@ -134,8 +137,7 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
     });
   }
 
-  void _save() {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+  Future<void> _save() async {
     final int openingBalance = _linkedDebit || _creditCard
         ? 0
         : parseMinorUnits(_balanceController.text) ?? 0;
@@ -149,7 +151,7 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
       _showError('Outstanding balance cannot exceed the credit limit.');
       return;
     }
-    Navigator.of(context).pop(
+    await widget.onSave(
       CreateAccountInput(
         name: _nameController.text.trim(),
         provider: _providerController.text,
@@ -474,10 +476,11 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
               ),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Save account'),
+                child: AsyncSaveButton(
+                  label: 'Save account',
+                  icon: Icons.add_rounded,
+                  validate: () => _formKey.currentState?.validate() ?? false,
+                  onSave: _save,
                 ),
               ),
             ),

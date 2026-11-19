@@ -184,6 +184,15 @@ final class LocalFinancialRepository implements FinancialRepository {
       _localDataSource.createLoan(input);
 
   @override
+  Future<String> createLoanWithInstallments({
+    required CreateLoanInput loan,
+    required List<CreateLoanInstallmentPlanInput> installments,
+  }) => _localDataSource.createLoanWithInstallments(
+    loan: loan,
+    installments: installments,
+  );
+
+  @override
   Future<void> updateLoan(UpdateLoanInput input) =>
       _localDataSource.updateLoan(input);
 

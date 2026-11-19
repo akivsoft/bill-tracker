@@ -1437,30 +1437,31 @@ class LocalFinancialDataSource {
     });
   }
 
-  Future<void> setBillActive(String billId, bool isActive) async {
-    final BillRecord bill = await (_database.select(
-      _database.bills,
-    )..where((Bills row) => row.id.equals(billId))).getSingle();
-    if (bill.archivedAt != null && isActive) {
-      throw StateError('Restore this bill before activating it.');
-    }
-    final DateTime now = _now();
-    await (_database.update(
-      _database.bills,
-    )..where((Bills row) => row.id.equals(billId))).write(
-      BillsCompanion(
-        isActive: Value<bool>(isActive),
-        updatedAt: Value<DateTime>(now),
-        localVersion: Value<int>(bill.localVersion + 1),
-      ),
-    );
-    await _enqueue('bills', billId, <String, Object?>{
-      'id': billId,
-      'is_active': isActive,
-    });
-  }
+  Future<void> setBillActive(String billId, bool isActive) =>
+      _database.transaction(() async {
+        final BillRecord bill = await (_database.select(
+          _database.bills,
+        )..where((Bills row) => row.id.equals(billId))).getSingle();
+        if (bill.archivedAt != null && isActive) {
+          throw StateError('Restore this bill before activating it.');
+        }
+        final DateTime now = _now();
+        await (_database.update(
+          _database.bills,
+        )..where((Bills row) => row.id.equals(billId))).write(
+          BillsCompanion(
+            isActive: Value<bool>(isActive),
+            updatedAt: Value<DateTime>(now),
+            localVersion: Value<int>(bill.localVersion + 1),
+          ),
+        );
+        await _enqueue('bills', billId, <String, Object?>{
+          'id': billId,
+          'is_active': isActive,
+        });
+      });
 
-  Future<void> archiveBill(String billId) async {
+  Future<void> archiveBill(String billId) => _database.transaction(() async {
     final BillRecord bill = await (_database.select(
       _database.bills,
     )..where((Bills row) => row.id.equals(billId))).getSingle();
@@ -1480,9 +1481,9 @@ class LocalFinancialDataSource {
       'archived_at': now.toIso8601String(),
       'is_active': false,
     });
-  }
+  });
 
-  Future<void> deleteBill(String billId) async {
+  Future<void> deleteBill(String billId) => _database.transaction(() async {
     final bool hasPayments =
         await (_database.select(_database.billPayments)
               ..where((BillPayments row) => row.billId.equals(billId)))
@@ -1500,7 +1501,7 @@ class LocalFinancialDataSource {
       'id': billId,
       'deleted': true,
     });
-  }
+  });
 
   Future<void> skipBillOccurrence(SkipBillOccurrenceInput input) async {
     _requireText(input.occurrenceKey, 'occurrenceKey');
@@ -1697,6 +1698,26 @@ class LocalFinancialDataSource {
     });
     return id;
   }
+
+  Future<String> createLoanWithInstallments({
+    required CreateLoanInput loan,
+    required List<CreateLoanInstallmentPlanInput> installments,
+  }) => _database.transaction(() async {
+    final String loanId = await createLoan(loan);
+    for (final CreateLoanInstallmentPlanInput plan in installments) {
+      await createInstallment(
+        CreateInstallmentInput(
+          loanId: loanId,
+          installmentNumber: plan.installmentNumber,
+          dueDate: plan.dueDate,
+          scheduledAmountMinorUnits: plan.scheduledAmountMinorUnits,
+          paymentAccountId: plan.paymentAccountId,
+          notes: plan.notes,
+        ),
+      );
+    }
+    return loanId;
+  });
 
   Future<String> recordLoanDisbursement(LoanDisbursementInput input) =>
       _database.transaction(() async {
@@ -2006,32 +2027,35 @@ class LocalFinancialDataSource {
     });
   }
 
-  Future<void> setLoanStatus(String loanId, String status) async {
-    if (!<String>{'active', 'cancelled'}.contains(status)) {
-      throw ArgumentError.value(status, 'status');
-    }
-    final LoanRecord loan = await _loan(loanId);
-    if (loan.archivedAt != null) throw StateError('Reopen this loan first.');
-    if (status == 'cancelled' && loan.remainingBalanceMinorUnits == 0) {
-      throw StateError('A fully paid loan cannot be cancelled.');
-    }
-    final DateTime now = _now();
-    await (_database.update(
-      _database.loans,
-    )..where((Loans row) => row.id.equals(loan.id))).write(
-      LoansCompanion(
-        status: Value<String>(status),
-        updatedAt: Value<DateTime>(now),
-        localVersion: Value<int>(loan.localVersion + 1),
-      ),
-    );
-    await _enqueue('loans', loan.id, <String, Object?>{
-      'id': loan.id,
-      'status': status,
-    });
-  }
+  Future<void> setLoanStatus(String loanId, String status) =>
+      _database.transaction(() async {
+        if (!<String>{'active', 'cancelled'}.contains(status)) {
+          throw ArgumentError.value(status, 'status');
+        }
+        final LoanRecord loan = await _loan(loanId);
+        if (loan.archivedAt != null) {
+          throw StateError('Reopen this loan first.');
+        }
+        if (status == 'cancelled' && loan.remainingBalanceMinorUnits == 0) {
+          throw StateError('A fully paid loan cannot be cancelled.');
+        }
+        final DateTime now = _now();
+        await (_database.update(
+          _database.loans,
+        )..where((Loans row) => row.id.equals(loan.id))).write(
+          LoansCompanion(
+            status: Value<String>(status),
+            updatedAt: Value<DateTime>(now),
+            localVersion: Value<int>(loan.localVersion + 1),
+          ),
+        );
+        await _enqueue('loans', loan.id, <String, Object?>{
+          'id': loan.id,
+          'status': status,
+        });
+      });
 
-  Future<void> archiveLoan(String loanId) async {
+  Future<void> archiveLoan(String loanId) => _database.transaction(() async {
     final LoanRecord loan = await _loan(loanId);
     final DateTime now = _now();
     await (_database.update(
@@ -2047,9 +2071,9 @@ class LocalFinancialDataSource {
       'id': loan.id,
       'archived_at': now.toIso8601String(),
     });
-  }
+  });
 
-  Future<void> reopenLoan(String loanId) async {
+  Future<void> reopenLoan(String loanId) => _database.transaction(() async {
     final LoanRecord loan = await _loan(loanId);
     final DateTime now = _now();
     await (_database.update(
@@ -2069,7 +2093,7 @@ class LocalFinancialDataSource {
       'archived_at': null,
       'status': loan.remainingBalanceMinorUnits == 0 ? 'paid' : 'active',
     });
-  }
+  });
 
   Future<void> deleteLoan(String loanId) async {
     final List<LoanPaymentRecord> payments = await (_database.select(
@@ -2094,59 +2118,61 @@ class LocalFinancialDataSource {
 
   Future<void> updateInstallment(UpdateInstallmentInput input) async {
     _requirePositive(input.scheduledAmountMinorUnits, 'scheduledAmount');
-    final LoanInstallmentRecord item =
-        await (_database.select(_database.loanInstallments)..where(
-              (LoanInstallments row) => row.id.equals(input.installmentId),
-            ))
-            .getSingle();
-    if (item.paidMinorUnits > 0 ||
-        item.status == 'paid' ||
-        item.status == 'settled') {
-      throw StateError('Paid installments cannot be edited.');
-    }
-    if (input.paymentAccountId != null) {
-      final LoanRecord loan = await _loan(item.loanId);
-      final FinancialAccountRecord account = await _account(
-        input.paymentAccountId!,
+    await _database.transaction(() async {
+      final LoanInstallmentRecord item =
+          await (_database.select(_database.loanInstallments)..where(
+                (LoanInstallments row) => row.id.equals(input.installmentId),
+              ))
+              .getSingle();
+      if (item.paidMinorUnits > 0 ||
+          item.status == 'paid' ||
+          item.status == 'settled') {
+        throw StateError('Paid installments cannot be edited.');
+      }
+      if (input.paymentAccountId != null) {
+        final LoanRecord loan = await _loan(item.loanId);
+        final FinancialAccountRecord account = await _account(
+          input.paymentAccountId!,
+        );
+        _requireOwner(loan.userId, account.userId);
+        _requireCashAccount(account);
+        _requireSameCurrency(loan.currencyCode, account.currencyCode);
+      }
+      final DateTime now = _now();
+      await (_database.update(
+        _database.loanInstallments,
+      )..where((LoanInstallments row) => row.id.equals(item.id))).write(
+        LoanInstallmentsCompanion(
+          dueDate: Value<DateTime>(_asUtcDate(input.dueDate)),
+          scheduledMinorUnits: Value<int>(input.scheduledAmountMinorUnits),
+          paymentAccountId: Value<String?>(input.paymentAccountId),
+          notes: Value<String?>(_trimOrNull(input.notes)),
+          updatedAt: Value<DateTime>(now),
+          localVersion: Value<int>(item.localVersion + 1),
+        ),
       );
-      _requireOwner(loan.userId, account.userId);
-      _requireCashAccount(account);
-      _requireSameCurrency(loan.currencyCode, account.currencyCode);
-    }
-    final DateTime now = _now();
-    await (_database.update(
-      _database.loanInstallments,
-    )..where((LoanInstallments row) => row.id.equals(item.id))).write(
-      LoanInstallmentsCompanion(
-        dueDate: Value<DateTime>(_asUtcDate(input.dueDate)),
-        scheduledMinorUnits: Value<int>(input.scheduledAmountMinorUnits),
-        paymentAccountId: Value<String?>(input.paymentAccountId),
-        notes: Value<String?>(_trimOrNull(input.notes)),
-        updatedAt: Value<DateTime>(now),
-        localVersion: Value<int>(item.localVersion + 1),
-      ),
-    );
-    await _enqueue('loan_installments', item.id, <String, Object?>{
-      'id': item.id,
-      'due_date': _dateOnly(input.dueDate),
-      'scheduled_amount': _decimalAmount(input.scheduledAmountMinorUnits),
-      'payment_account_id': input.paymentAccountId,
-      'notes': _trimOrNull(input.notes),
+      await _enqueue('loan_installments', item.id, <String, Object?>{
+        'id': item.id,
+        'due_date': _dateOnly(input.dueDate),
+        'scheduled_amount': _decimalAmount(input.scheduledAmountMinorUnits),
+        'payment_account_id': input.paymentAccountId,
+        'notes': _trimOrNull(input.notes),
+      });
+      await _refreshLoanSchedule(item.loanId);
     });
-    await _refreshLoanSchedule(item.loanId);
   }
 
   Future<void> deleteInstallment(String installmentId) async {
-    final LoanInstallmentRecord item =
-        await (_database.select(_database.loanInstallments)
-              ..where((LoanInstallments row) => row.id.equals(installmentId)))
-            .getSingle();
-    if (item.paidMinorUnits > 0 ||
-        item.status == 'paid' ||
-        item.status == 'settled') {
-      throw StateError('Paid installments cannot be removed.');
-    }
     await _database.transaction(() async {
+      final LoanInstallmentRecord item =
+          await (_database.select(_database.loanInstallments)
+                ..where((LoanInstallments row) => row.id.equals(installmentId)))
+              .getSingle();
+      if (item.paidMinorUnits > 0 ||
+          item.status == 'paid' ||
+          item.status == 'settled') {
+        throw StateError('Paid installments cannot be removed.');
+      }
       await (_database.delete(
         _database.loanInstallments,
       )..where((LoanInstallments row) => row.id.equals(item.id))).go();
@@ -2712,92 +2738,100 @@ class LocalFinancialDataSource {
     if (input.priority < 1 || input.priority > 5) {
       throw ArgumentError('Priority must be between 1 and 5.');
     }
-    final FinancialAllocationRecord row =
-        await (_database.select(_database.financialAllocations)
-              ..where((FinancialAllocations item) => item.id.equals(input.id)))
-            .getSingle();
-    if (row.status == 'completed') {
-      throw StateError('Completed allocations cannot be edited.');
-    }
-    final CreateAllocationInput keyInput = CreateAllocationInput(
-      paydayScheduleId: row.paydayScheduleId,
-      allocatedAmountMinorUnits: input.allocatedAmountMinorUnits,
-      allocationCategory: input.allocationCategory,
-      allocationKey: row.allocationKey,
-      relatedBillId: input.relatedBillId,
-      relatedDueDate: input.relatedDueDate,
-      relatedInstallmentId: input.relatedInstallmentId,
-      relatedSavingsGoalId: input.relatedSavingsGoalId,
-      periodDate: input.periodDate,
-      priority: input.priority,
-    );
-    final String allocationKey = _allocationKey(keyInput);
-    final FinancialAllocationRecord? duplicate =
-        await (_database.select(_database.financialAllocations)..where(
-              (FinancialAllocations item) =>
-                  item.allocationKey.equals(allocationKey) &
-                  item.id.isNotValue(input.id),
-            ))
-            .getSingleOrNull();
-    if (duplicate != null) {
-      throw StateError('This obligation is already assigned to that payday.');
-    }
-    await (_database.update(
-      _database.financialAllocations,
-    )..where((FinancialAllocations item) => item.id.equals(input.id))).write(
-      FinancialAllocationsCompanion(
-        allocatedAmountMinorUnits: Value<int>(input.allocatedAmountMinorUnits),
-        allocationCategory: Value<String>(input.allocationCategory),
-        relatedBillId: Value<String?>(input.relatedBillId),
-        relatedDueDate: Value<DateTime?>(
-          input.relatedDueDate == null
-              ? null
-              : _asUtcDate(input.relatedDueDate!),
+    await _database.transaction(() async {
+      final FinancialAllocationRecord row =
+          await (_database.select(
+                _database.financialAllocations,
+              )..where((FinancialAllocations item) => item.id.equals(input.id)))
+              .getSingle();
+      if (row.status == 'completed') {
+        throw StateError('Completed allocations cannot be edited.');
+      }
+      final CreateAllocationInput keyInput = CreateAllocationInput(
+        paydayScheduleId: row.paydayScheduleId,
+        allocatedAmountMinorUnits: input.allocatedAmountMinorUnits,
+        allocationCategory: input.allocationCategory,
+        allocationKey: row.allocationKey,
+        relatedBillId: input.relatedBillId,
+        relatedDueDate: input.relatedDueDate,
+        relatedInstallmentId: input.relatedInstallmentId,
+        relatedSavingsGoalId: input.relatedSavingsGoalId,
+        periodDate: input.periodDate,
+        priority: input.priority,
+      );
+      final String allocationKey = _allocationKey(keyInput);
+      final FinancialAllocationRecord? duplicate =
+          await (_database.select(_database.financialAllocations)..where(
+                (FinancialAllocations item) =>
+                    item.allocationKey.equals(allocationKey) &
+                    item.id.isNotValue(input.id),
+              ))
+              .getSingleOrNull();
+      if (duplicate != null) {
+        throw StateError('This obligation is already assigned to that payday.');
+      }
+      await (_database.update(
+        _database.financialAllocations,
+      )..where((FinancialAllocations item) => item.id.equals(input.id))).write(
+        FinancialAllocationsCompanion(
+          allocatedAmountMinorUnits: Value<int>(
+            input.allocatedAmountMinorUnits,
+          ),
+          allocationCategory: Value<String>(input.allocationCategory),
+          relatedBillId: Value<String?>(input.relatedBillId),
+          relatedDueDate: Value<DateTime?>(
+            input.relatedDueDate == null
+                ? null
+                : _asUtcDate(input.relatedDueDate!),
+          ),
+          relatedInstallmentId: Value<String?>(input.relatedInstallmentId),
+          relatedSavingsGoalId: Value<String?>(input.relatedSavingsGoalId),
+          periodDate: Value<DateTime?>(
+            input.periodDate == null ? null : _asUtcDate(input.periodDate!),
+          ),
+          priority: Value<int>(input.priority),
+          allocationKey: Value<String>(allocationKey),
+          notes: Value<String?>(_trimOrNull(input.notes)),
+          updatedAt: Value<DateTime>(_now()),
         ),
-        relatedInstallmentId: Value<String?>(input.relatedInstallmentId),
-        relatedSavingsGoalId: Value<String?>(input.relatedSavingsGoalId),
-        periodDate: Value<DateTime?>(
-          input.periodDate == null ? null : _asUtcDate(input.periodDate!),
-        ),
-        priority: Value<int>(input.priority),
-        allocationKey: Value<String>(allocationKey),
-        notes: Value<String?>(_trimOrNull(input.notes)),
-        updatedAt: Value<DateTime>(_now()),
-      ),
-    );
-    await _enqueue('financial_allocations', input.id, <String, Object?>{
-      'id': input.id,
-      'payday_schedule_id': row.paydayScheduleId,
-      'allocation_type': input.allocationCategory,
-      'allocation_category': input.allocationCategory,
-      'amount': _decimalAmount(input.allocatedAmountMinorUnits),
-      'related_bill_id': input.relatedBillId,
-      'related_due_date': _dateOnly(input.relatedDueDate),
-      'related_installment_id': input.relatedInstallmentId,
-      'related_savings_goal_id': input.relatedSavingsGoalId,
-      'period_date': _dateOnly(input.periodDate),
-      'priority': input.priority,
-      'allocation_key': allocationKey,
-      'status': row.status,
-      'notes': _trimOrNull(input.notes),
+      );
+      await _enqueue('financial_allocations', input.id, <String, Object?>{
+        'id': input.id,
+        'payday_schedule_id': row.paydayScheduleId,
+        'allocation_type': input.allocationCategory,
+        'allocation_category': input.allocationCategory,
+        'amount': _decimalAmount(input.allocatedAmountMinorUnits),
+        'related_bill_id': input.relatedBillId,
+        'related_due_date': _dateOnly(input.relatedDueDate),
+        'related_installment_id': input.relatedInstallmentId,
+        'related_savings_goal_id': input.relatedSavingsGoalId,
+        'period_date': _dateOnly(input.periodDate),
+        'priority': input.priority,
+        'allocation_key': allocationKey,
+        'status': row.status,
+        'notes': _trimOrNull(input.notes),
+      });
     });
   }
 
   Future<void> deleteAllocation(String allocationId) async {
-    final FinancialAllocationRecord row =
-        await (_database.select(_database.financialAllocations)..where(
-              (FinancialAllocations item) => item.id.equals(allocationId),
-            ))
-            .getSingle();
-    if (row.status == 'completed') {
-      throw StateError('Completed allocations cannot be removed.');
-    }
-    await (_database.delete(
-      _database.financialAllocations,
-    )..where((FinancialAllocations item) => item.id.equals(allocationId))).go();
-    await _enqueue('financial_allocations', allocationId, <String, Object?>{
-      'id': allocationId,
-      'status': 'deleted',
+    await _database.transaction(() async {
+      final FinancialAllocationRecord row =
+          await (_database.select(_database.financialAllocations)..where(
+                (FinancialAllocations item) => item.id.equals(allocationId),
+              ))
+              .getSingle();
+      if (row.status == 'completed') {
+        throw StateError('Completed allocations cannot be removed.');
+      }
+      await (_database.delete(
+            _database.financialAllocations,
+          )..where((FinancialAllocations item) => item.id.equals(allocationId)))
+          .go();
+      await _enqueue('financial_allocations', allocationId, <String, Object?>{
+        'id': allocationId,
+        'status': 'deleted',
+      });
     });
   }
 

@@ -1,6 +1,7 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/bills/domain/services/bill_schedule_calculator.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
@@ -562,7 +563,38 @@ class PlannerScreen extends ConsumerWidget {
     String? accountId = existing?.receivingAccountId;
     DateTime payday = existing?.paydayDate ?? DateTime.now();
     final key = GlobalKey<FormState>();
-    final bool? save = await showDialogAndWaitForExit<bool>(
+    final repo = ref.read(financialRepositoryProvider);
+    Future<void> saveSchedule() async {
+      final int minor = parseMinorUnits(amount.text)!;
+      if (existing == null) {
+        await repo.createPaydaySchedule(
+          CreatePaydayScheduleInput(
+            name: name.text,
+            paydayDate: payday,
+            expectedIncomeMinorUnits: minor,
+            frequency: frequency,
+            currencyCode: currency,
+            receivingAccountId: accountId,
+            notes: notes.text,
+          ),
+        );
+      } else {
+        await repo.updatePaydaySchedule(
+          UpdatePaydayScheduleInput(
+            id: existing.id,
+            name: name.text,
+            paydayDate: payday,
+            expectedIncomeMinorUnits: minor,
+            frequency: frequency,
+            currencyCode: currency,
+            receivingAccountId: accountId,
+            notes: notes.text,
+          ),
+        );
+      }
+    }
+
+    await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
@@ -685,54 +717,15 @@ class PlannerScreen extends ConsumerWidget {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (key.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
+            AsyncSaveButton(
+              label: 'Save',
+              validate: () => key.currentState?.validate() ?? false,
+              onSave: saveSchedule,
             ),
           ],
         ),
       ),
     );
-    if (!context.mounted) return;
-    if (save == true) {
-      try {
-        final repo = ref.read(financialRepositoryProvider);
-        final int minor = parseMinorUnits(amount.text)!;
-        if (existing == null) {
-          await repo.createPaydaySchedule(
-            CreatePaydayScheduleInput(
-              name: name.text,
-              paydayDate: payday,
-              expectedIncomeMinorUnits: minor,
-              frequency: frequency,
-              currencyCode: currency,
-              receivingAccountId: accountId,
-              notes: notes.text,
-            ),
-          );
-        } else {
-          await repo.updatePaydaySchedule(
-            UpdatePaydayScheduleInput(
-              id: existing.id,
-              name: name.text,
-              paydayDate: payday,
-              expectedIncomeMinorUnits: minor,
-              frequency: frequency,
-              currencyCode: currency,
-              receivingAccountId: accountId,
-              notes: notes.text,
-            ),
-          );
-        }
-      } catch (error) {
-        if (!context.mounted) return;
-        _message(context, 'Could not save payday schedule: $error');
-      }
-    }
     name.dispose();
     amount.dispose();
     notes.dispose();
@@ -761,7 +754,44 @@ class PlannerScreen extends ConsumerWidget {
     String? goalId = existing?.relatedSavingsGoalId;
     DateTime date = existing?.periodDate ?? initialDate ?? schedule.paydayDate;
     final key = GlobalKey<FormState>();
-    final bool? save = await showDialogAndWaitForExit<bool>(
+    final repo = ref.read(financialRepositoryProvider);
+    Future<void> saveAllocation() async {
+      final int minor = parseMinorUnits(amount.text)!;
+      if (existing == null) {
+        await repo.createAllocation(
+          CreateAllocationInput(
+            paydayScheduleId: schedule.id,
+            allocatedAmountMinorUnits: minor,
+            allocationCategory: category,
+            allocationKey: _uuid.v4(),
+            relatedBillId: billId,
+            relatedDueDate: billDueDate,
+            relatedInstallmentId: installmentId,
+            relatedSavingsGoalId: goalId,
+            periodDate: date,
+            priority: priority,
+            notes: notes.text,
+          ),
+        );
+      } else {
+        await repo.updateAllocation(
+          UpdateAllocationInput(
+            id: existing.id,
+            allocatedAmountMinorUnits: minor,
+            allocationCategory: category,
+            priority: priority,
+            periodDate: date,
+            relatedBillId: billId,
+            relatedDueDate: billDueDate,
+            relatedInstallmentId: installmentId,
+            relatedSavingsGoalId: goalId,
+            notes: notes.text,
+          ),
+        );
+      }
+    }
+
+    await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (context, setStateDialog) => AlertDialog(
@@ -973,60 +1003,15 @@ class PlannerScreen extends ConsumerWidget {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (key.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
+            AsyncSaveButton(
+              label: 'Save',
+              validate: () => key.currentState?.validate() ?? false,
+              onSave: saveAllocation,
             ),
           ],
         ),
       ),
     );
-    if (!context.mounted) return;
-    if (save == true) {
-      try {
-        final repo = ref.read(financialRepositoryProvider);
-        final int minor = parseMinorUnits(amount.text)!;
-        if (existing == null) {
-          await repo.createAllocation(
-            CreateAllocationInput(
-              paydayScheduleId: schedule.id,
-              allocatedAmountMinorUnits: minor,
-              allocationCategory: category,
-              allocationKey: _uuid.v4(),
-              relatedBillId: billId,
-              relatedDueDate: billDueDate,
-              relatedInstallmentId: installmentId,
-              relatedSavingsGoalId: goalId,
-              periodDate: date,
-              priority: priority,
-              notes: notes.text,
-            ),
-          );
-        } else {
-          await repo.updateAllocation(
-            UpdateAllocationInput(
-              id: existing.id,
-              allocatedAmountMinorUnits: minor,
-              allocationCategory: category,
-              priority: priority,
-              periodDate: date,
-              relatedBillId: billId,
-              relatedDueDate: billDueDate,
-              relatedInstallmentId: installmentId,
-              relatedSavingsGoalId: goalId,
-              notes: notes.text,
-            ),
-          );
-        }
-      } catch (error) {
-        if (!context.mounted) return;
-        _message(context, 'Could not save allocation: $error');
-      }
-    }
     amount.dispose();
     notes.dispose();
   }

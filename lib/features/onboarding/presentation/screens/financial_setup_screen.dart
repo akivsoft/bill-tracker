@@ -79,16 +79,17 @@ class _FinancialSetupScreenState extends ConsumerState<FinancialSetupScreen> {
             .read(userPreferencesProvider.notifier)
             .saveIncomeFrequency(_incomeFrequency);
       } else if (_step == 2) {
-        final CreateAccountInput? input =
-            await showModalBottomSheet<CreateAccountInput>(
-              context: context,
-              isScrollControlled: true,
-              useSafeArea: true,
-              builder: (BuildContext context) =>
-                  AccountEntrySheet(currencyCode: _currencyCode),
-            );
-        if (input == null) return;
-        await ref.read(financialRepositoryProvider).createAccount(input);
+        final bool? accountSaved = await showModalBottomSheet<bool>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          builder: (BuildContext context) => AccountEntrySheet(
+            currencyCode: _currencyCode,
+            onSave: (CreateAccountInput input) =>
+                ref.read(financialRepositoryProvider).createAccount(input),
+          ),
+        );
+        if (accountSaved != true) return;
       } else {
         await ref.read(userPreferencesProvider.notifier).completeSetup();
         if (mounted) context.go(RouteNames.homePath);

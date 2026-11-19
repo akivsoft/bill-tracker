@@ -1,5 +1,6 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:flutter/material.dart';
@@ -9,11 +10,13 @@ class AccountEditSheet extends StatefulWidget {
   const AccountEditSheet({
     required this.account,
     required this.availableAccounts,
+    required this.onSave,
     super.key,
   });
 
   final FinancialAccount account;
   final List<FinancialAccount> availableAccounts;
+  final Future<void> Function(UpdateAccountInput input) onSave;
 
   @override
   State<AccountEditSheet> createState() => _AccountEditSheetState();
@@ -104,7 +107,7 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
     });
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final int statementBalance = parseMinorUnits(_statement.text) ?? 0;
     final int minimumPayment = parseMinorUnits(_minimum.text) ?? 0;
@@ -120,7 +123,7 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
       );
       return;
     }
-    Navigator.of(context).pop(
+    await widget.onSave(
       UpdateAccountInput(
         accountId: widget.account.id,
         name: _name.text.trim(),
@@ -361,10 +364,11 @@ class _AccountEditSheetState extends State<AccountEditSheet> {
               padding: const EdgeInsets.all(AppSpacing.medium),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: _save,
-                  icon: const Icon(Icons.save_outlined),
-                  label: const Text('Save changes'),
+                child: AsyncSaveButton(
+                  label: 'Save changes',
+                  icon: Icons.save_outlined,
+                  validate: () => _formKey.currentState?.validate() ?? false,
+                  onSave: _save,
                 ),
               ),
             ),

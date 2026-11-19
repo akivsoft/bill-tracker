@@ -1,6 +1,7 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -344,7 +345,40 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
     String frequency = income?.frequency ?? 'one_time';
     String? accountId = income?.receivingAccountId;
     final form = GlobalKey<FormState>();
-    final bool? saved = await showDialogAndWaitForExit<bool>(
+    final FinancialRepository repository = ref.read(
+      financialRepositoryProvider,
+    );
+    Future<void> saveIncome() async {
+      final int minor = parseMinorUnits(amount.text)!;
+      if (income == null) {
+        await repository.createIncome(
+          CreateIncomeInput(
+            source: source.text.trim(),
+            amountMinorUnits: minor,
+            expectedDate: date,
+            frequency: frequency,
+            category: category.text.trim(),
+            receivingAccountId: accountId,
+            notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
+          ),
+        );
+      } else {
+        await repository.updateIncome(
+          UpdateIncomeInput(
+            incomeId: income.id,
+            source: source.text.trim(),
+            amountMinorUnits: minor,
+            expectedDate: date,
+            frequency: frequency,
+            category: category.text.trim(),
+            receivingAccountId: accountId,
+            notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
+          ),
+        );
+      }
+    }
+
+    await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) =>
@@ -489,54 +523,15 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                   onPressed: () => Navigator.pop(dialogContext, false),
                   child: const Text('Cancel'),
                 ),
-                FilledButton(
-                  onPressed: () {
-                    if (form.currentState?.validate() ?? false) {
-                      Navigator.pop(dialogContext, true);
-                    }
-                  },
-                  child: const Text('Save'),
+                AsyncSaveButton(
+                  label: 'Save',
+                  validate: () => form.currentState?.validate() ?? false,
+                  onSave: saveIncome,
                 ),
               ],
             ),
       ),
     );
-    if (saved == true && mounted) {
-      final FinancialRepository repository = ref.read(
-        financialRepositoryProvider,
-      );
-      final int minor = parseMinorUnits(amount.text)!;
-      try {
-        if (income == null) {
-          await repository.createIncome(
-            CreateIncomeInput(
-              source: source.text.trim(),
-              amountMinorUnits: minor,
-              expectedDate: date,
-              frequency: frequency,
-              category: category.text.trim(),
-              receivingAccountId: accountId,
-              notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
-            ),
-          );
-        } else {
-          await repository.updateIncome(
-            UpdateIncomeInput(
-              incomeId: income.id,
-              source: source.text.trim(),
-              amountMinorUnits: minor,
-              expectedDate: date,
-              frequency: frequency,
-              category: category.text.trim(),
-              receivingAccountId: accountId,
-              notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
-            ),
-          );
-        }
-      } catch (error) {
-        _toast('Could not save income: $error');
-      }
-    }
     source.dispose();
     category.dispose();
     amount.dispose();
@@ -566,7 +561,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
         ? income.receivingAccountId!
         : eligible.first.id;
     DateTime date = DateTime.now();
-    final bool? confirmed = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
@@ -613,30 +608,25 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Confirm'),
+            AsyncSaveButton(
+              label: 'Confirm',
+              onSave: () async {
+                await ref
+                    .read(financialRepositoryProvider)
+                    .confirmIncome(
+                      ConfirmIncomeInput(
+                        incomeId: income.id,
+                        accountId: accountId,
+                        receivedAt: date,
+                        idempotencyKey: _uuid.v4(),
+                      ),
+                    );
+              },
             ),
           ],
         ),
       ),
     );
-    if (confirmed == true) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .confirmIncome(
-              ConfirmIncomeInput(
-                incomeId: income.id,
-                accountId: accountId,
-                receivedAt: date,
-                idempotencyKey: _uuid.v4(),
-              ),
-            );
-      } catch (error) {
-        _toast('Could not confirm income: $error');
-      }
-    }
   }
 
   Future<void> _cancel(IncomeEntry income) async {

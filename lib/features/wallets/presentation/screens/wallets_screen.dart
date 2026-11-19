@@ -639,23 +639,18 @@ class _WalletsScreenState extends ConsumerState<WalletsScreen> {
     List<FinancialAccount> allAccounts,
     String currencyCode,
   ) async {
-    final CreateAccountInput? input =
-        await showModalBottomSheet<CreateAccountInput>(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          builder: (BuildContext context) => AccountEntrySheet(
-            currencyCode: currencyCode,
-            availableAccounts: allAccounts,
-          ),
-        );
-    if (input == null) return;
-    try {
-      await ref.read(financialRepositoryProvider).createAccount(input);
-      if (mounted) _showMessage('Account added.');
-    } catch (error) {
-      if (mounted) _showMessage('Could not add account: $error');
-    }
+    final bool? saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext context) => AccountEntrySheet(
+        currencyCode: currencyCode,
+        availableAccounts: allAccounts,
+        onSave: (CreateAccountInput input) =>
+            ref.read(financialRepositoryProvider).createAccount(input),
+      ),
+    );
+    if (saved == true && mounted) _showMessage('Account added.');
   }
 
   Future<void> _openAction(

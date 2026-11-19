@@ -57,6 +57,10 @@ abstract interface class FinancialRepository {
   Future<void> deleteBill(String billId);
   Future<void> skipBillOccurrence(SkipBillOccurrenceInput input);
   Future<String> createLoan(CreateLoanInput input);
+  Future<String> createLoanWithInstallments({
+    required CreateLoanInput loan,
+    required List<CreateLoanInstallmentPlanInput> installments,
+  });
   Future<void> updateLoan(UpdateLoanInput input);
   Future<void> setLoanStatus(String loanId, String status);
   Future<void> archiveLoan(String loanId);

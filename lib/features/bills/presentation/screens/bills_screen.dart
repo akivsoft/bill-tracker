@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/core/widgets/app_card.dart';
 import 'package:bill_tracker/core/widgets/app_loading.dart';
@@ -939,6 +940,50 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     String? categoryNotice;
     String? accountId = (bill ?? initial)?.paymentAccountId;
     bool allocation = (bill ?? initial)?.automaticAllocation ?? false;
+    Future<void> saveBill() async {
+      final String savedFrequency = frequency == 'custom'
+          ? 'custom:${int.parse(customDays.text)}'
+          : frequency;
+      final String? config = _encodeMetadata(
+        provider.text.trim(),
+        reference.text.trim(),
+        reminder,
+      );
+      final int value = parseMinorUnits(amount.text)!;
+      final FinancialRepository repository = ref.read(
+        financialRepositoryProvider,
+      );
+      if (bill == null) {
+        await repository.createBill(
+          CreateBillInput(
+            name: name.text.trim(),
+            amountMinorUnits: value,
+            dueDate: dueDate,
+            frequency: savedFrequency,
+            categoryId: categoryId,
+            paymentAccountId: accountId,
+            reminderConfiguration: config,
+            automaticAllocation: allocation,
+            notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
+          ),
+        );
+      } else {
+        await repository.updateBill(
+          UpdateBillInput(
+            billId: bill.id,
+            name: name.text.trim(),
+            amountMinorUnits: value,
+            dueDate: dueDate,
+            frequency: savedFrequency,
+            categoryId: categoryId,
+            paymentAccountId: accountId,
+            reminderConfiguration: config,
+            automaticAllocation: allocation,
+            notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
+          ),
+        );
+      }
+    }
 
     Future<void> selectCategory(
       BuildContext dialogContext,
@@ -1129,7 +1174,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     }
 
     final form = GlobalKey<FormState>();
-    final bool? save = await _showDialogAndWaitForExit<bool>(
+    await _showDialogAndWaitForExit<bool>(
       (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
           title: Text(
@@ -1386,67 +1431,16 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
+            AsyncSaveButton(
+              label: 'Save',
+              validate: () => form.currentState?.validate() ?? false,
+              onSave: saveBill,
             ),
           ],
         ),
       ),
     );
 
-    if (save == true && mounted) {
-      final String savedFrequency = frequency == 'custom'
-          ? 'custom:${int.parse(customDays.text)}'
-          : frequency;
-      final String? config = _encodeMetadata(
-        provider.text.trim(),
-        reference.text.trim(),
-        reminder,
-      );
-      final int value = parseMinorUnits(amount.text)!;
-      final FinancialRepository repository = ref.read(
-        financialRepositoryProvider,
-      );
-      try {
-        if (bill == null) {
-          await repository.createBill(
-            CreateBillInput(
-              name: name.text.trim(),
-              amountMinorUnits: value,
-              dueDate: dueDate,
-              frequency: savedFrequency,
-              categoryId: categoryId,
-              paymentAccountId: accountId,
-              reminderConfiguration: config,
-              automaticAllocation: allocation,
-              notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
-            ),
-          );
-        } else {
-          await repository.updateBill(
-            UpdateBillInput(
-              billId: bill.id,
-              name: name.text.trim(),
-              amountMinorUnits: value,
-              dueDate: dueDate,
-              frequency: savedFrequency,
-              categoryId: categoryId,
-              paymentAccountId: accountId,
-              reminderConfiguration: config,
-              automaticAllocation: allocation,
-              notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
-            ),
-          );
-        }
-      } catch (error) {
-        _toast('Could not save bill: $error');
-      }
-    }
     name.dispose();
     amount.dispose();
     notes.dispose();
@@ -1486,7 +1480,20 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
         : eligible.first.id;
     DateTime paidAt = DateTime.now();
     final form = GlobalKey<FormState>();
-    final bool? confirm = await showDialogAndWaitForExit<bool>(
+    Future<void> confirmPayment() => ref
+        .read(financialRepositoryProvider)
+        .confirmBillPayment(
+          BillPaymentInput(
+            billId: occurrence.bill.id,
+            accountId: accountId,
+            amountMinorUnits: parseMinorUnits(amount.text)!,
+            occurrenceKey: occurrence.key,
+            paidAt: paidAt,
+            idempotencyKey: _uuid.v4(),
+            notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
+          ),
+        );
+    await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
@@ -1578,37 +1585,15 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Confirm payment'),
+            AsyncSaveButton(
+              label: 'Confirm payment',
+              validate: () => form.currentState?.validate() ?? false,
+              onSave: confirmPayment,
             ),
           ],
         ),
       ),
     );
-    if (confirm == true) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .confirmBillPayment(
-              BillPaymentInput(
-                billId: occurrence.bill.id,
-                accountId: accountId,
-                amountMinorUnits: parseMinorUnits(amount.text)!,
-                occurrenceKey: occurrence.key,
-                paidAt: paidAt,
-                idempotencyKey: _uuid.v4(),
-                notes: notes.text.trim().isEmpty ? null : notes.text.trim(),
-              ),
-            );
-      } catch (error) {
-        _toast('Could not record payment: $error');
-      }
-    }
     amount.dispose();
     notes.dispose();
   }

@@ -3,6 +3,7 @@ import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/core/widgets/app_card.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/core/widgets/empty_state.dart';
 import 'package:bill_tracker/core/widgets/summary_card.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
@@ -927,7 +928,98 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     DateTime firstDue =
         loan?.nextDueDate ?? DateTime.now().add(const Duration(days: 30));
     final form = GlobalKey<FormState>();
-    final bool? save = await _showDialogAndWaitForExit<bool>(
+    Future<void> saveLoan() async {
+      final principalMinor = _parse(principal.text);
+      final interestMinor = interest.text.trim().isEmpty
+          ? 0
+          : _parse(interest.text);
+      final repayment = repaymentAmount.text.trim().isEmpty
+          ? principalMinor + interestMinor
+          : _parse(repaymentAmount.text);
+      final installmentsCount = int.parse(count.text);
+      if (repayment < installmentsCount) {
+        throw StateError(
+          'Repayment total must provide at least one centavo per installment.',
+        );
+      }
+      final String frequencyValue = frequency == 'custom'
+          ? 'custom:${int.parse(customDays.text)}'
+          : frequency;
+      final perInstallment = installment.text.trim().isEmpty
+          ? repayment ~/ installmentsCount
+          : _parse(installment.text);
+      final List<LoanInstallmentPlan> schedule =
+          LoanScheduleCalculator.generate(
+            firstDueDate: firstDue,
+            frequency: frequencyValue,
+            count: installmentsCount,
+            totalMinorUnits: repayment,
+            installmentAmountMinorUnits: perInstallment,
+          );
+      final paid = loan == null
+          ? 0
+          : loan.totalRepaymentMinorUnits - loan.remainingBalanceMinorUnits;
+      final dueRemaining = loan == null
+          ? repayment
+          : (repayment - paid).clamp(0, repayment);
+      final bps = ((double.tryParse(rate.text) ?? 0) * 100).round();
+      if (loan == null) {
+        await repository.createLoanWithInstallments(
+          loan: CreateLoanInput(
+            name: name.text.trim(),
+            providerName: provider.text.trim(),
+            principalMinorUnits: principalMinor,
+            remainingBalanceMinorUnits: repayment,
+            totalRepaymentMinorUnits: repayment,
+            interestRateBasisPoints: bps,
+            totalInterestMinorUnits: interestMinor,
+            openedAt: opened,
+            endDate: schedule.last.dueDate,
+            durationMonths: int.tryParse(duration.text),
+            paymentFrequency: frequencyValue,
+            installmentAmountMinorUnits: perInstallment,
+            totalInstallments: installmentsCount,
+            paymentAccountId: accountId,
+            categoryId: categoryId,
+            notes: notes.text.trim(),
+          ),
+          installments: schedule
+              .map(
+                (LoanInstallmentPlan plan) => CreateLoanInstallmentPlanInput(
+                  installmentNumber: plan.number,
+                  dueDate: plan.dueDate,
+                  scheduledAmountMinorUnits: plan.amountMinorUnits,
+                  paymentAccountId: accountId,
+                ),
+              )
+              .toList(growable: false),
+        );
+      } else {
+        await repository.updateLoan(
+          UpdateLoanInput(
+            loanId: loan.id,
+            name: name.text.trim(),
+            providerName: provider.text.trim(),
+            principalMinorUnits: principalMinor,
+            remainingBalanceMinorUnits: dueRemaining,
+            totalRepaymentMinorUnits: repayment,
+            interestRateBasisPoints: bps,
+            totalInterestMinorUnits: interestMinor,
+            openedAt: opened,
+            endDate: loan.endDate,
+            durationMonths: int.tryParse(duration.text),
+            paymentFrequency: frequencyValue,
+            installmentAmountMinorUnits: perInstallment,
+            totalInstallments: installmentsCount,
+            paymentAccountId: accountId,
+            categoryId: categoryId,
+            notes: notes.text.trim(),
+          ),
+        );
+      }
+    }
+
+    await _showDialogAndWaitForExit<bool>(
       (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setStateDialog) => AlertDialog(
           title: Text(loan == null ? 'Add loan' : 'Edit loan'),
@@ -1212,113 +1304,15 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState?.validate() ?? false) {
-                  Navigator.pop(context, true);
-                }
-              },
-              child: const Text('Save'),
+            AsyncSaveButton(
+              label: 'Save',
+              validate: () => form.currentState?.validate() ?? false,
+              onSave: saveLoan,
             ),
           ],
         ),
       ),
     );
-    if (save == true) {
-      try {
-        final principalMinor = _parse(principal.text);
-        final interestMinor = interest.text.trim().isEmpty
-            ? 0
-            : _parse(interest.text);
-        final repayment = repaymentAmount.text.trim().isEmpty
-            ? principalMinor + interestMinor
-            : _parse(repaymentAmount.text);
-        final installmentsCount = int.parse(count.text);
-        if (repayment < installmentsCount) {
-          throw StateError(
-            'Repayment total must provide at least one centavo per installment.',
-          );
-        }
-        final String frequencyValue = frequency == 'custom'
-            ? 'custom:${int.parse(customDays.text)}'
-            : frequency;
-        final perInstallment = installment.text.trim().isEmpty
-            ? repayment ~/ installmentsCount
-            : _parse(installment.text);
-        final List<LoanInstallmentPlan> schedule =
-            LoanScheduleCalculator.generate(
-              firstDueDate: firstDue,
-              frequency: frequencyValue,
-              count: installmentsCount,
-              totalMinorUnits: repayment,
-              installmentAmountMinorUnits: perInstallment,
-            );
-        final paid = loan == null
-            ? 0
-            : loan.totalRepaymentMinorUnits - loan.remainingBalanceMinorUnits;
-        final dueRemaining = loan == null
-            ? repayment
-            : (repayment - paid).clamp(0, repayment);
-        final bps = ((double.tryParse(rate.text) ?? 0) * 100).round();
-        if (loan == null) {
-          final id = await repository.createLoan(
-            CreateLoanInput(
-              name: name.text.trim(),
-              providerName: provider.text.trim(),
-              principalMinorUnits: principalMinor,
-              remainingBalanceMinorUnits: repayment,
-              totalRepaymentMinorUnits: repayment,
-              interestRateBasisPoints: bps,
-              totalInterestMinorUnits: interestMinor,
-              openedAt: opened,
-              endDate: schedule.last.dueDate,
-              durationMonths: int.tryParse(duration.text),
-              paymentFrequency: frequencyValue,
-              installmentAmountMinorUnits: perInstallment,
-              totalInstallments: installmentsCount,
-              paymentAccountId: accountId,
-              categoryId: categoryId,
-              notes: notes.text.trim(),
-            ),
-          );
-          for (final LoanInstallmentPlan plan in schedule) {
-            await repository.createInstallment(
-              CreateInstallmentInput(
-                loanId: id,
-                installmentNumber: plan.number,
-                dueDate: plan.dueDate,
-                scheduledAmountMinorUnits: plan.amountMinorUnits,
-                paymentAccountId: accountId,
-              ),
-            );
-          }
-        } else {
-          await repository.updateLoan(
-            UpdateLoanInput(
-              loanId: loan.id,
-              name: name.text.trim(),
-              providerName: provider.text.trim(),
-              principalMinorUnits: principalMinor,
-              remainingBalanceMinorUnits: dueRemaining,
-              totalRepaymentMinorUnits: repayment,
-              interestRateBasisPoints: bps,
-              totalInterestMinorUnits: interestMinor,
-              openedAt: opened,
-              endDate: loan.endDate,
-              durationMonths: int.tryParse(duration.text),
-              paymentFrequency: frequencyValue,
-              installmentAmountMinorUnits: perInstallment,
-              totalInstallments: installmentsCount,
-              paymentAccountId: accountId,
-              categoryId: categoryId,
-              notes: notes.text.trim(),
-            ),
-          );
-        }
-      } catch (error) {
-        _toast('Could not save loan: $error');
-      }
-    }
     for (final controller in <TextEditingController>[
       name,
       provider,
@@ -1555,7 +1549,20 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
         (available.isEmpty ? null : available.first.id);
     DateTime date = DateTime.now();
     final form = GlobalKey<FormState>();
-    final bool? save = await _showDialogAndWaitForExit<bool>(
+    Future<void> savePayment() => ref
+        .read(financialRepositoryProvider)
+        .confirmLoanPayment(
+          LoanPaymentInput(
+            loanId: loan.id,
+            installmentId: installment.id,
+            accountId: accountId,
+            amountMinorUnits: _parse(amount.text),
+            paidAt: date,
+            idempotencyKey: _uuid.v4(),
+            notes: notes.text.trim(),
+          ),
+        );
+    await _showDialogAndWaitForExit<bool>(
       (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter update) => AlertDialog(
           title: const Text('Confirm installment payment'),
@@ -1631,37 +1638,15 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               onPressed: () => Navigator.pop(context, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState?.validate() ?? false) {
-                  Navigator.pop(context, true);
-                }
-              },
-              child: const Text('Confirm payment'),
+            AsyncSaveButton(
+              label: 'Confirm payment',
+              validate: () => form.currentState?.validate() ?? false,
+              onSave: savePayment,
             ),
           ],
         ),
       ),
     );
-    if (save == true) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .confirmLoanPayment(
-              LoanPaymentInput(
-                loanId: loan.id,
-                installmentId: installment.id,
-                accountId: accountId,
-                amountMinorUnits: _parse(amount.text),
-                paidAt: date,
-                idempotencyKey: _uuid.v4(),
-                notes: notes.text.trim(),
-              ),
-            );
-      } catch (error) {
-        _toast('Could not record payment: $error');
-      }
-    }
     amount.dispose();
     notes.dispose();
   }
@@ -1769,7 +1754,33 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     DateTime date = item?.dueDate ?? loan.nextDueDate ?? DateTime.now();
     String? accountId = item?.paymentAccountId ?? loan.paymentAccountId;
     final form = GlobalKey<FormState>();
-    final bool? save = await _showDialogAndWaitForExit<bool>(
+    final repo = ref.read(financialRepositoryProvider);
+    Future<void> saveInstallment() async {
+      if (item == null) {
+        await repo.createInstallment(
+          CreateInstallmentInput(
+            loanId: loan.id,
+            installmentNumber: number,
+            dueDate: date,
+            scheduledAmountMinorUnits: _parse(amount.text),
+            paymentAccountId: accountId,
+            notes: notes.text.trim(),
+          ),
+        );
+      } else {
+        await repo.updateInstallment(
+          UpdateInstallmentInput(
+            installmentId: item.id,
+            dueDate: date,
+            scheduledAmountMinorUnits: _parse(amount.text),
+            paymentAccountId: accountId,
+            notes: notes.text.trim(),
+          ),
+        );
+      }
+    }
+
+    await _showDialogAndWaitForExit<bool>(
       (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter update) => AlertDialog(
           title: Text(
@@ -1841,47 +1852,15 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
+            AsyncSaveButton(
+              label: 'Save',
+              validate: () => form.currentState?.validate() ?? false,
+              onSave: saveInstallment,
             ),
           ],
         ),
       ),
     );
-    if (save == true) {
-      try {
-        final repo = ref.read(financialRepositoryProvider);
-        if (item == null) {
-          await repo.createInstallment(
-            CreateInstallmentInput(
-              loanId: loan.id,
-              installmentNumber: number,
-              dueDate: date,
-              scheduledAmountMinorUnits: _parse(amount.text),
-              paymentAccountId: accountId,
-              notes: notes.text.trim(),
-            ),
-          );
-        } else {
-          await repo.updateInstallment(
-            UpdateInstallmentInput(
-              installmentId: item.id,
-              dueDate: date,
-              scheduledAmountMinorUnits: _parse(amount.text),
-              paymentAccountId: accountId,
-              notes: notes.text.trim(),
-            ),
-          );
-        }
-      } catch (error) {
-        _toast('Could not save installment: $error');
-      }
-    }
     amount.dispose();
     notes.dispose();
   }
@@ -1973,7 +1952,19 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     String? accountId = available.isEmpty ? null : available.first.id;
     DateTime receivedAt = DateTime.now();
     final form = GlobalKey<FormState>();
-    final bool? confirmed = await _showDialogAndWaitForExit<bool>(
+    Future<void> recordFunds() => ref
+        .read(financialRepositoryProvider)
+        .recordLoanDisbursement(
+          LoanDisbursementInput(
+            loanId: loan.id,
+            accountId: accountId!,
+            amountMinorUnits: _parse(amount.text),
+            receivedAt: receivedAt,
+            idempotencyKey: _uuid.v4(),
+            notes: notes.text.trim(),
+          ),
+        );
+    await _showDialogAndWaitForExit<bool>(
       (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter update) => AlertDialog(
           title: const Text('Record loan funds received'),
@@ -2036,36 +2027,15 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Record funds'),
+            AsyncSaveButton(
+              label: 'Record funds',
+              validate: () => form.currentState?.validate() ?? false,
+              onSave: recordFunds,
             ),
           ],
         ),
       ),
     );
-    if (confirmed == true && accountId != null) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .recordLoanDisbursement(
-              LoanDisbursementInput(
-                loanId: loan.id,
-                accountId: accountId!,
-                amountMinorUnits: _parse(amount.text),
-                receivedAt: receivedAt,
-                idempotencyKey: _uuid.v4(),
-                notes: notes.text.trim(),
-              ),
-            );
-      } catch (error) {
-        _toast('Could not record funds: $error');
-      }
-    }
     amount.dispose();
     notes.dispose();
   }
@@ -2076,7 +2046,17 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     );
     final reason = TextEditingController();
     final form = GlobalKey<FormState>();
-    final bool? confirmed = await _showDialogAndWaitForExit<bool>(
+    Future<void> saveAdjustment() => ref
+        .read(financialRepositoryProvider)
+        .adjustLoanBalance(
+          AdjustLoanBalanceInput(
+            loanId: loan.id,
+            remainingBalanceMinorUnits: _parse(amount.text),
+            adjustedAt: DateTime.now(),
+            reason: reason.text.trim(),
+          ),
+        );
+    await _showDialogAndWaitForExit<bool>(
       (BuildContext dialogContext) => AlertDialog(
         title: const Text('Adjust lender balance'),
         scrollable: true,
@@ -2120,33 +2100,14 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            onPressed: () {
-              if (form.currentState?.validate() ?? false) {
-                Navigator.pop(dialogContext, true);
-              }
-            },
-            child: const Text('Save adjustment'),
+          AsyncSaveButton(
+            label: 'Save adjustment',
+            validate: () => form.currentState?.validate() ?? false,
+            onSave: saveAdjustment,
           ),
         ],
       ),
     );
-    if (confirmed == true) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .adjustLoanBalance(
-              AdjustLoanBalanceInput(
-                loanId: loan.id,
-                remainingBalanceMinorUnits: _parse(amount.text),
-                adjustedAt: DateTime.now(),
-                reason: reason.text.trim(),
-              ),
-            );
-      } catch (error) {
-        _toast('Could not adjust lender balance: $error');
-      }
-    }
     amount.dispose();
     reason.dispose();
   }

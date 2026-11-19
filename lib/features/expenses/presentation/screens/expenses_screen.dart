@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -469,7 +470,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
 
   Future<void> _addCategory() async {
     final TextEditingController name = TextEditingController();
-    final bool? save = await showDialogAndWaitForExit<bool>(
+    await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
         title: const Text('New expense category'),
@@ -485,28 +486,21 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.pop(context, name.text.trim().isNotEmpty),
-            child: const Text('Save'),
+          AsyncSaveButton(
+            label: 'Save',
+            validate: () => name.text.trim().isNotEmpty,
+            onSave: () => ref
+                .read(financialRepositoryProvider)
+                .createCategory(
+                  CreateCategoryInput(
+                    name: name.text.trim(),
+                    categoryType: 'expense',
+                  ),
+                ),
           ),
         ],
       ),
     );
-    if (save == true) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .createCategory(
-              CreateCategoryInput(
-                name: name.text.trim(),
-                categoryType: 'expense',
-              ),
-            );
-      } catch (error) {
-        _toast('Could not add category: $error');
-      }
-    }
     name.dispose();
   }
 
@@ -541,7 +535,45 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     String? accountId = expense?.paymentAccountId;
     String? attachmentReference = expense?.attachmentReference;
     final form = GlobalKey<FormState>();
-    final bool? saved = await showDialogAndWaitForExit<bool>(
+    final FinancialRepository repository = ref.read(
+      financialRepositoryProvider,
+    );
+    Future<void> saveExpense() async {
+      if (expense == null) {
+        await repository.createExpense(
+          CreateExpenseInput(
+            title: title.text.trim(),
+            amountMinorUnits: parseMinorUnits(amount.text)!,
+            occurredAt: date,
+            categoryId: categoryId,
+            paymentAccountId: accountId,
+            description: notes.text.trim().isEmpty ? null : notes.text.trim(),
+            attachmentReference: attachmentReference,
+            recurrenceConfiguration: recurrence.text.trim().isEmpty
+                ? null
+                : recurrence.text.trim(),
+          ),
+        );
+      } else {
+        await repository.updateExpense(
+          UpdateExpenseInput(
+            expenseId: expense.id,
+            title: title.text.trim(),
+            amountMinorUnits: parseMinorUnits(amount.text)!,
+            occurredAt: date,
+            categoryId: categoryId,
+            paymentAccountId: accountId,
+            description: notes.text.trim().isEmpty ? null : notes.text.trim(),
+            attachmentReference: attachmentReference,
+            recurrenceConfiguration: recurrence.text.trim().isEmpty
+                ? null
+                : recurrence.text.trim(),
+          ),
+        );
+      }
+    }
+
+    await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
@@ -686,59 +718,15 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () {
-                if (form.currentState?.validate() ?? false) {
-                  Navigator.pop(dialogContext, true);
-                }
-              },
-              child: const Text('Save'),
+            AsyncSaveButton(
+              label: 'Save',
+              validate: () => form.currentState?.validate() ?? false,
+              onSave: saveExpense,
             ),
           ],
         ),
       ),
     );
-    if (saved == true && mounted) {
-      final FinancialRepository repository = ref.read(
-        financialRepositoryProvider,
-      );
-      try {
-        if (expense == null) {
-          await repository.createExpense(
-            CreateExpenseInput(
-              title: title.text.trim(),
-              amountMinorUnits: parseMinorUnits(amount.text)!,
-              occurredAt: date,
-              categoryId: categoryId,
-              paymentAccountId: accountId,
-              description: notes.text.trim().isEmpty ? null : notes.text.trim(),
-              attachmentReference: attachmentReference,
-              recurrenceConfiguration: recurrence.text.trim().isEmpty
-                  ? null
-                  : recurrence.text.trim(),
-            ),
-          );
-        } else {
-          await repository.updateExpense(
-            UpdateExpenseInput(
-              expenseId: expense.id,
-              title: title.text.trim(),
-              amountMinorUnits: parseMinorUnits(amount.text)!,
-              occurredAt: date,
-              categoryId: categoryId,
-              paymentAccountId: accountId,
-              description: notes.text.trim().isEmpty ? null : notes.text.trim(),
-              attachmentReference: attachmentReference,
-              recurrenceConfiguration: recurrence.text.trim().isEmpty
-                  ? null
-                  : recurrence.text.trim(),
-            ),
-          );
-        }
-      } catch (error) {
-        _toast('Could not save expense: $error');
-      }
-    }
     title.dispose();
     amount.dispose();
     notes.dispose();
@@ -789,7 +777,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
         )
         ? expense.paymentAccountId!
         : eligible.first.id;
-    final bool? yes = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (BuildContext dialogContext) => StatefulBuilder(
         builder: (BuildContext context, StateSetter setDialogState) => AlertDialog(
@@ -824,30 +812,25 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
               onPressed: () => Navigator.pop(dialogContext, false),
               child: const Text('Cancel'),
             ),
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('Record'),
+            AsyncSaveButton(
+              label: 'Record',
+              onSave: () async {
+                await ref
+                    .read(financialRepositoryProvider)
+                    .confirmExpense(
+                      ConfirmExpenseInput(
+                        expenseId: expense.id,
+                        accountId: accountId,
+                        confirmedAt: DateTime.now(),
+                        idempotencyKey: _uuid.v4(),
+                      ),
+                    );
+              },
             ),
           ],
         ),
       ),
     );
-    if (yes == true) {
-      try {
-        await ref
-            .read(financialRepositoryProvider)
-            .confirmExpense(
-              ConfirmExpenseInput(
-                expenseId: expense.id,
-                accountId: accountId,
-                confirmedAt: DateTime.now(),
-                idempotencyKey: _uuid.v4(),
-              ),
-            );
-      } catch (error) {
-        _toast('Could not record expense: $error');
-      }
-    }
   }
 
   Future<void> _cancel(ExpenseEntry expense) async {

@@ -352,6 +352,22 @@ final class CreateLoanInput {
   final String? notes;
 }
 
+final class CreateLoanInstallmentPlanInput {
+  const CreateLoanInstallmentPlanInput({
+    required this.installmentNumber,
+    required this.dueDate,
+    required this.scheduledAmountMinorUnits,
+    this.paymentAccountId,
+    this.notes,
+  });
+
+  final int installmentNumber;
+  final DateTime dueDate;
+  final int scheduledAmountMinorUnits;
+  final String? paymentAccountId;
+  final String? notes;
+}
+
 final class CreateInstallmentInput {
   const CreateInstallmentInput({
     required this.loanId,

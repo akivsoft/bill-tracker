@@ -3,6 +3,7 @@ import 'package:bill_tracker/app/router/route_names.dart';
 import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/widgets/app_card.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
+import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/core/widgets/section_header.dart';
 import 'package:bill_tracker/features/authentication/domain/entities/auth_session.dart';
 import 'package:bill_tracker/features/authentication/presentation/providers/authentication_provider.dart';
@@ -346,7 +347,7 @@ class SettingsScreen extends ConsumerWidget {
     final TextEditingController controller = TextEditingController(
       text: preferences.displayName ?? '',
     );
-    final String? value = await showDialogAndWaitForExit<String>(
+    await showDialogAndWaitForExit<bool>(
       context: context,
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Display name'),
@@ -363,22 +364,22 @@ class SettingsScreen extends ConsumerWidget {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('Save'),
+          AsyncSaveButton(
+            label: 'Save',
+            onSave: () => _savePersonalPreferences(
+              ref,
+              preferences.copyWith(
+                displayName: controller.text.trim().isEmpty
+                    ? null
+                    : controller.text.trim(),
+                clearDisplayName: controller.text.trim().isEmpty,
+              ),
+            ),
           ),
         ],
       ),
     );
     controller.dispose();
-    if (value == null) return;
-    await _savePersonalPreferences(
-      ref,
-      preferences.copyWith(
-        displayName: value.trim().isEmpty ? null : value.trim(),
-        clearDisplayName: value.trim().isEmpty,
-      ),
-    );
   }
 
   Future<void> _savePersonalPreferences(

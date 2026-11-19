@@ -816,24 +816,19 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
     FinancialAccount account,
     AsyncValue<List<FinancialAccount>> accountsValue,
   ) async {
-    final UpdateAccountInput? input =
-        await showModalBottomSheet<UpdateAccountInput>(
-          context: context,
-          isScrollControlled: true,
-          useSafeArea: true,
-          builder: (BuildContext context) => AccountEditSheet(
-            account: account,
-            availableAccounts:
-                accountsValue.asData?.value ?? <FinancialAccount>[account],
-          ),
-        );
-    if (input == null) return;
-    try {
-      await ref.read(financialRepositoryProvider).updateAccount(input);
-      if (mounted) _showMessage('Account details saved.');
-    } catch (error) {
-      if (mounted) _showMessage('Could not update this account: $error');
-    }
+    final bool? saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (BuildContext context) => AccountEditSheet(
+        account: account,
+        availableAccounts:
+            accountsValue.asData?.value ?? <FinancialAccount>[account],
+        onSave: (UpdateAccountInput input) =>
+            ref.read(financialRepositoryProvider).updateAccount(input),
+      ),
+    );
+    if (saved == true && mounted) _showMessage('Account details saved.');
   }
 
   Future<void> _handleAccountAction(

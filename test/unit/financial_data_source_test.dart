@@ -595,6 +595,30 @@ void main() {
       },
     );
 
+    test('loan and installment schedule creation is atomic', () async {
+      await expectLater(
+        dataSource.createLoanWithInstallments(
+          loan: CreateLoanInput(
+            name: 'Family borrowing',
+            providerName: 'Personal Loans',
+            principalMinorUnits: php1000,
+            openedAt: now,
+          ),
+          installments: <CreateLoanInstallmentPlanInput>[
+            CreateLoanInstallmentPlanInput(
+              installmentNumber: 0,
+              dueDate: now,
+              scheduledAmountMinorUnits: php1000,
+            ),
+          ],
+        ),
+        throwsArgumentError,
+      );
+
+      expect(await database.select(database.loans).get(), isEmpty);
+      expect(await database.select(database.loanInstallments).get(), isEmpty);
+    });
+
     test(
       'loan installment supports a partial payment and updates balances',
       () async {
