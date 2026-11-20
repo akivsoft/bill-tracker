@@ -60,4 +60,27 @@ void main() {
     );
     expect(result, isEmpty);
   });
+
+  test('calendar reminders use their saved custom date and time', () {
+    final DateTime customAt = DateTime(2026, 12, 5, 18, 45);
+    final List<PlannedReminder> result = ReminderPlanner.plan(
+      candidates: <ReminderCandidate>[
+        ReminderCandidate(
+          key: 'calendar:custom',
+          title: 'Calendar reminder',
+          body: 'Reminder',
+          category: 'calendar',
+          dueAt: customAt,
+        ),
+      ],
+      enabledCategories: const <String>{'calendar'},
+      daysBefore: 7,
+      hour: 9,
+      minute: 0,
+      now: DateTime(2026, 12, 1),
+      alreadyScheduledKeys: const <String>{},
+    );
+
+    expect(result.single.at, customAt);
+  });
 }

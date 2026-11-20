@@ -24,8 +24,8 @@ void main() {
     test(
       'balance history reflects only recorded income, spend, and reversal',
       () {
-        final DateTime first = DateTime(2026, 10, 20);
-        final DateTime second = DateTime(2026, 10, 21);
+        final DateTime first = DateTime(2026, 10, 20, 9);
+        final DateTime second = DateTime(2026, 10, 20, 12);
         const FinancialAccount account = FinancialAccount(
           id: 'cash',
           name: 'Cash',
@@ -61,7 +61,7 @@ void main() {
                 title: 'Reverse food',
                 amountMinorUnits: 1000,
                 currencyCode: 'PHP',
-                occurredAt: second.add(const Duration(days: 1)),
+                occurredAt: second.add(const Duration(hours: 5)),
                 reversalOfId: 'expense',
               ),
             ];
@@ -79,6 +79,10 @@ void main() {
         expect(
           points.map((BalanceHistoryPoint point) => point.balanceMinorUnits),
           <int>[15000, 14000, 15000],
+        );
+        expect(
+          points.map((BalanceHistoryPoint point) => point.date),
+          <DateTime>[first, second, second.add(const Duration(hours: 5))],
         );
       },
     );

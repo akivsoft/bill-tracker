@@ -10,6 +10,7 @@ import 'package:bill_tracker/features/transactions/domain/entities/financial_rec
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
 import 'package:bill_tracker/features/wallets/domain/services/wallet_calculator.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -545,7 +546,7 @@ class _ReportsScreenState extends ConsumerState<ReportsScreen> {
   Future<void> _changePeriod(_ReportPeriod? period) async {
     if (period == null) return;
     if (period == _ReportPeriod.custom) {
-      final DateTimeRange? picked = await showDateRangePicker(
+      final DateTimeRange? picked = await showAppDateRangePicker(
         context: context,
         firstDate: DateTime(2000),
         lastDate: DateTime(2100),

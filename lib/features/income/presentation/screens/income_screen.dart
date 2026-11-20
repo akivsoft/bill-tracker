@@ -2,6 +2,7 @@ import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/widgets/async_save_button.dart';
+import 'package:bill_tracker/core/widgets/category_name_dialog.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -9,6 +10,7 @@ import 'package:bill_tracker/features/transactions/domain/entities/financial_rec
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
 import 'package:bill_tracker/features/transactions/domain/repositories/financial_repository.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -25,6 +27,14 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
   final TextEditingController _search = TextEditingController();
   String _status = 'all';
   String _period = 'month';
+  bool _incomeCategorySeedStarted = false;
+  static const List<String> _defaultIncomeCategories = <String>[
+    'Salary',
+    'Freelance',
+    'Business',
+    'Bonus',
+    'Other',
+  ];
   static const Uuid _uuid = Uuid();
 
   @override
@@ -36,9 +46,16 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
   @override
   Widget build(BuildContext context) {
     final incomes = ref.watch(incomeOverviewProvider);
+    final incomeCategoriesAsync = ref.watch(incomeCategoriesProvider);
     final transactions = ref.watch(recentTransactionsProvider);
     final accounts = ref.watch(walletManagementAccountsProvider);
     final incomeRows = incomes.asData?.value ?? const <IncomeEntry>[];
+    if (incomeCategoriesAsync.hasValue && !_incomeCategorySeedStarted) {
+      _incomeCategorySeedStarted = true;
+      _seedIncomeCategories(
+        incomeCategoriesAsync.asData?.value ?? const <CategoryEntry>[],
+      );
+    }
     final now = DateTime.now();
     final DateTimeRange range = _range(now);
     final selected = incomeRows.where((IncomeEntry item) {
@@ -141,7 +158,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                 ],
                 onChanged: (String? value) async {
                   if (value == 'custom') {
-                    final DateTimeRange? custom = await showDateRangePicker(
+                    final DateTimeRange? custom = await showAppDateRangePicker(
                       context: context,
                       firstDate: DateTime(2000),
                       lastDate: DateTime(2100),
@@ -187,84 +204,95 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                 ),
               )
             else
-              ...visible.map(
-                (IncomeEntry income) => Card(
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.south_west_rounded),
-                    ),
-                    title: Text(income.source),
-                    subtitle: Text(
-                      '${_statusLabel(income, now)} · ${DateFormat.yMMMd().format((income.actualReceivedAt ?? income.expectedDate).toLocal())} · ${income.frequency.replaceAll('_', ' ')}',
-                    ),
-                    trailing: Text(
-                      Money(
-                        income.amountMinorUnits,
-                        currencyCode: income.currencyCode,
-                      ).format(),
-                      textAlign: TextAlign.end,
-                    ),
-                    onTap: () => _showDetails(income),
-                    isThreeLine: false,
-                  ),
-                ),
-              ),
-            ...visible
-                .where((IncomeEntry item) => item.status == 'expected')
-                .map(
-                  (IncomeEntry income) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.small),
-                    child: Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: AppSpacing.small,
-                      children: <Widget>[
-                        OutlinedButton.icon(
-                          onPressed: () => _editIncome(
-                            accounts.asData?.value ?? const [],
-                            income,
+              ...visible.map((IncomeEntry income) {
+                final FinancialTransactionView? transaction =
+                    (transactions.asData?.value ??
+                            const <FinancialTransactionView>[])
+                        .where(
+                          (FinancialTransactionView item) =>
+                              item.type == 'income' &&
+                              item.relatedRecordId == income.id,
+                        )
+                        .firstOrNull;
+                return Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.south_west_rounded),
+                        ),
+                        title: Text(income.source),
+                        subtitle: Text(
+                          '${_statusLabel(income, now)} · ${DateFormat.yMMMd().format((income.actualReceivedAt ?? income.expectedDate).toLocal())} · ${income.frequency.replaceAll('_', ' ')}',
+                        ),
+                        trailing: Text(
+                          Money(
+                            income.amountMinorUnits,
+                            currencyCode: income.currencyCode,
+                          ).format(),
+                          textAlign: TextAlign.end,
+                        ),
+                        onTap: () => _showDetails(income),
+                      ),
+                      if (income.status == 'expected')
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.medium,
+                            0,
+                            AppSpacing.medium,
+                            AppSpacing.small,
                           ),
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('Edit'),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => _confirmReceipt(
-                            income,
-                            accounts.asData?.value ?? const [],
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: AppSpacing.small,
+                            children: <Widget>[
+                              OutlinedButton.icon(
+                                onPressed: () => _editIncome(
+                                  accounts.asData?.value ?? const [],
+                                  income,
+                                ),
+                                icon: const Icon(Icons.edit_outlined),
+                                label: const Text('Edit'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _confirmReceipt(
+                                  income,
+                                  accounts.asData?.value ?? const [],
+                                ),
+                                icon: const Icon(Icons.check),
+                                label: const Text('Mark received'),
+                              ),
+                              IconButton(
+                                tooltip: 'Cancel income',
+                                onPressed: () => _cancel(income),
+                                icon: const Icon(Icons.cancel_outlined),
+                              ),
+                            ],
                           ),
-                          icon: const Icon(Icons.check),
-                          label: const Text('Mark received'),
                         ),
-                        IconButton(
-                          tooltip: 'Cancel income',
-                          onPressed: () => _cancel(income),
-                          icon: const Icon(Icons.cancel_outlined),
+                      if (income.status == 'received' && transaction != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.medium,
+                            0,
+                            AppSpacing.medium,
+                            AppSpacing.small,
+                          ),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  _reverseReceived(income, transaction),
+                              icon: const Icon(Icons.undo_rounded),
+                              label: const Text('Reverse received entry'),
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
-                ),
-            ...visible
-                .where((IncomeEntry item) => item.status == 'received')
-                .map((IncomeEntry income) {
-                  final FinancialTransactionView? transaction =
-                      (transactions.asData?.value ??
-                              const <FinancialTransactionView>[])
-                          .where(
-                            (FinancialTransactionView item) =>
-                                item.type == 'income' &&
-                                item.relatedRecordId == income.id,
-                          )
-                          .firstOrNull;
-                  if (transaction == null) return const SizedBox.shrink();
-                  return Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => _reverseReceived(income, transaction),
-                      icon: const Icon(Icons.undo_rounded),
-                      label: const Text('Reverse received entry'),
-                    ),
-                  );
-                }),
+                );
+              }),
           ],
         ),
       ),
@@ -315,6 +343,153 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
     child: Padding(padding: const EdgeInsets.all(24), child: Text(text)),
   );
 
+  Future<void> _seedIncomeCategories(List<CategoryEntry> existing) async {
+    final Set<String> names = existing
+        .map((CategoryEntry item) => item.name.trim().toLowerCase())
+        .toSet();
+    final repository = ref.read(financialRepositoryProvider);
+    for (final String name in _defaultIncomeCategories.where(
+      (String item) => !names.contains(item.toLowerCase()),
+    )) {
+      try {
+        await repository.createCategory(
+          CreateCategoryInput(
+            name: name,
+            categoryType: 'income',
+            isDefault: true,
+          ),
+        );
+      } catch (_) {
+        // A concurrent first launch may have seeded this category already.
+      }
+    }
+    ref.invalidate(incomeCategoriesProvider);
+  }
+
+  Future<String?> _chooseIncomeCategory(
+    BuildContext parentContext,
+    List<CategoryEntry> categories,
+    String selected,
+  ) async {
+    final List<CategoryEntry> available = categories
+        .where((CategoryEntry item) => !item.isArchived)
+        .toList();
+    return showDialog<String>(
+      context: parentContext,
+      builder: (BuildContext pickerContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setPickerState) => AlertDialog(
+          title: const Text('Choose income category'),
+          content: SizedBox(
+            width: 400,
+            height: MediaQuery.sizeOf(context).height * 0.45,
+            child: ListView(
+              children: <Widget>[
+                for (final CategoryEntry item in available)
+                  ListTile(
+                    title: Text(item.name),
+                    selected: selected == item.name,
+                    trailing: item.isDefault
+                        ? null
+                        : IconButton(
+                            tooltip: 'Remove ${item.name}',
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            onPressed: () async {
+                              final bool? remove = await showDialog<bool>(
+                                context: pickerContext,
+                                builder: (BuildContext confirmContext) =>
+                                    AlertDialog(
+                                      title: const Text('Remove category?'),
+                                      content: Text(
+                                        '"${item.name}" will be hidden from new entries. Existing records will be kept.',
+                                      ),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                            confirmContext,
+                                            false,
+                                          ),
+                                          child: const Text('Keep category'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(
+                                            confirmContext,
+                                            true,
+                                          ),
+                                          child: const Text('Remove'),
+                                        ),
+                                      ],
+                                    ),
+                              );
+                              if (remove != true || !pickerContext.mounted) {
+                                return;
+                              }
+                              try {
+                                await ref
+                                    .read(financialRepositoryProvider)
+                                    .archiveCategory(item.id);
+                                available.removeWhere(
+                                  (CategoryEntry value) => value.id == item.id,
+                                );
+                                categories.removeWhere(
+                                  (CategoryEntry value) => value.id == item.id,
+                                );
+                                ref.invalidate(incomeCategoriesProvider);
+                                setPickerState(() {});
+                              } catch (error) {
+                                _toast('Could not remove category: $error');
+                              }
+                            },
+                          ),
+                    onTap: () => Navigator.pop(pickerContext, item.name),
+                  ),
+                ListTile(
+                  title: const Text('Add other category'),
+                  onTap: () async {
+                    final CategoryEntry? created =
+                        await showDialog<CategoryEntry>(
+                          context: pickerContext,
+                          builder: (BuildContext context) => CategoryNameDialog(
+                            title: 'New income category',
+                            existing: categories,
+                            onSave: (String name) async {
+                              final String id = await ref
+                                  .read(financialRepositoryProvider)
+                                  .createCategory(
+                                    CreateCategoryInput(
+                                      name: name,
+                                      categoryType: 'income',
+                                    ),
+                                  );
+                              ref.invalidate(incomeCategoriesProvider);
+                              return CategoryEntry(
+                                id: id,
+                                name: name,
+                                categoryType: 'income',
+                                isDefault: false,
+                              );
+                            },
+                          ),
+                        );
+                    if (created != null && pickerContext.mounted) {
+                      categories.add(created);
+                      Navigator.pop(pickerContext, created.name);
+                    }
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(pickerContext),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _editIncome(
     List<FinancialAccount> accounts,
     IncomeEntry? income,
@@ -342,6 +517,9 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
       text: income?.notes ?? '',
     );
     DateTime date = income?.expectedDate ?? DateTime.now();
+    final List<CategoryEntry> incomeCategories =
+        ref.read(incomeCategoriesProvider).asData?.value.toList() ??
+        <CategoryEntry>[];
     String frequency = income?.frequency ?? 'one_time';
     String? accountId = income?.receivingAccountId;
     final form = GlobalKey<FormState>();
@@ -393,6 +571,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                     key: form,
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
+                      spacing: AppSpacing.small,
                       children: <Widget>[
                         TextFormField(
                           onTapOutside: (_) =>
@@ -426,18 +605,35 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                                 : null;
                           },
                         ),
-                        TextFormField(
-                          onTapOutside: (_) =>
-                              FocusManager.instance.primaryFocus?.unfocus(),
-                          controller: category,
-                          decoration: const InputDecoration(
-                            labelText: 'Income category',
-                            hintText: 'Salary, freelance, business, bonus…',
+                        InkWell(
+                          onTap: () async {
+                            final String? selected =
+                                await _chooseIncomeCategory(
+                                  context,
+                                  incomeCategories,
+                                  category.text,
+                                );
+                            if (selected != null) {
+                              setDialogState(() => category.text = selected);
+                            }
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(
+                              labelText: 'Income category',
+                            ),
+                            child: Row(
+                              children: <Widget>[
+                                Expanded(
+                                  child: Text(
+                                    category.text.isEmpty
+                                        ? 'Choose category'
+                                        : category.text,
+                                  ),
+                                ),
+                                const Icon(Icons.arrow_drop_down),
+                              ],
+                            ),
                           ),
-                          validator: (String? value) =>
-                              value == null || value.trim().isEmpty
-                              ? 'Enter an income category.'
-                              : null,
                         ),
                         DropdownButtonFormField<String>(
                           initialValue: frequency,
@@ -489,7 +685,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                         ),
                         TextButton.icon(
                           onPressed: () async {
-                            final DateTime? chosen = await showDatePicker(
+                            final DateTime? chosen = await showAppDatePicker(
                               context: context,
                               initialDate: date,
                               firstDate: DateTime(2000),
@@ -501,7 +697,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                           },
                           icon: const Icon(Icons.calendar_month_outlined),
                           label: Text(
-                            'Expected · ${DateFormat.yMMMd().format(date)}',
+                            'Expected Â· ${DateFormat.yMMMd().format(date)}',
                           ),
                         ),
                         TextFormField(
@@ -591,7 +787,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
               ),
               TextButton(
                 onPressed: () async {
-                  final DateTime? chosen = await showDatePicker(
+                  final DateTime? chosen = await showAppDatePicker(
                     context: context,
                     initialDate: date,
                     firstDate: DateTime(2000),
@@ -599,7 +795,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
                   );
                   if (chosen != null) setDialogState(() => date = chosen);
                 },
-                child: Text('Received · ${DateFormat.yMMMd().format(date)}'),
+                child: Text('Received Â· ${DateFormat.yMMMd().format(date)}'),
               ),
             ],
           ),
@@ -635,7 +831,7 @@ class _IncomeScreenState extends ConsumerState<IncomeScreen> {
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Cancel expected income?'),
         content: Text(
-          '“${income.source}” will remain in your history as cancelled.',
+          'â€œ${income.source}â€ will remain in your history as cancelled.',
         ),
         actions: <Widget>[
           TextButton(

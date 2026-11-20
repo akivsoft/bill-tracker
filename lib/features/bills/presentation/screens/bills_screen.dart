@@ -20,6 +20,8 @@ import 'package:bill_tracker/features/transactions/domain/entities/financial_val
 import 'package:bill_tracker/features/transactions/domain/repositories/financial_repository.dart';
 import 'package:bill_tracker/features/transactions/domain/services/financial_calculator.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
+import 'package:bill_tracker/core/widgets/category_name_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -31,92 +33,6 @@ class BillsScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<BillsScreen> createState() => _BillsScreenState();
-}
-
-class _NewBillCategoryDialog extends StatefulWidget {
-  const _NewBillCategoryDialog({required this.existing, required this.onSave});
-
-  final List<CategoryEntry> existing;
-  final Future<CategoryEntry> Function(String name) onSave;
-
-  @override
-  State<_NewBillCategoryDialog> createState() => _NewBillCategoryDialogState();
-}
-
-class _NewBillCategoryDialogState extends State<_NewBillCategoryDialog> {
-  final TextEditingController _name = TextEditingController();
-  final GlobalKey<FormState> _form = GlobalKey<FormState>();
-  bool _saving = false;
-  String? _saveError;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('New bill category'),
-    content: SingleChildScrollView(
-      child: Form(
-        key: _form,
-        child: TextFormField(
-          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-          controller: _name,
-          maxLength: 80,
-          autofocus: true,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
-          decoration: InputDecoration(
-            labelText: 'Category name',
-            errorText: _saveError,
-          ),
-          validator: (String? value) {
-            final String normalized = value?.trim() ?? '';
-            if (normalized.isEmpty) return 'Please enter a category name.';
-            if (widget.existing.any(
-              (CategoryEntry item) =>
-                  item.name.trim().toLowerCase() == normalized.toLowerCase(),
-            )) {
-              return 'This category already exists.';
-            }
-            return null;
-          },
-        ),
-      ),
-    ),
-    actions: <Widget>[
-      TextButton(
-        onPressed: _saving ? null : () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: _saving ? null : _save,
-        child: Text(_saving ? 'Saving…' : 'Save'),
-      ),
-    ],
-  );
-
-  Future<void> _save() async {
-    if (!(_form.currentState?.validate() ?? false)) return;
-    setState(() {
-      _saving = true;
-      _saveError = null;
-    });
-    try {
-      final CategoryEntry created = await widget.onSave(_name.text.trim());
-      if (mounted) {
-        Navigator.pop(context, created);
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _saveError = 'Could not save category. Please try again.';
-        });
-      }
-    }
-  }
 }
 
 class _BillsScreenState extends ConsumerState<BillsScreen> {
@@ -414,7 +330,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                         return;
                       }
                       if (value == 'custom') {
-                        final DateTimeRange? picked = await showDateRangePicker(
+                        final DateTimeRange? picked = await showAppDateRangePicker(
                           context: context,
                           firstDate: DateTime(2000),
                           lastDate: DateTime(2100),
@@ -829,7 +745,8 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
     List<CategoryEntry> existing = const <CategoryEntry>[],
   ]) => showDialog<CategoryEntry>(
     context: context,
-    builder: (BuildContext context) => _NewBillCategoryDialog(
+    builder: (BuildContext context) => CategoryNameDialog(
+      title: 'New bill category',
       existing: existing,
       onSave: (String name) async {
         final String id = await ref
@@ -1080,7 +997,11 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                               selected: isSelected,
                               trailing: item.isDefault
                                   ? null
-                                  : TextButton(
+                                  : IconButton(
+                                      tooltip: 'Remove ${item.name}',
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                      ),
                                       onPressed: () async {
                                         final bool removed =
                                             await _removeCategory(item, bills);
@@ -1104,16 +1025,22 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
 
                                         setPickerState(() {});
                                       },
-                                      child: const Text('Remove'),
                                     ),
-                              onTap: () =>
-                                  Navigator.pop(pickerContext, item.id),
+                              onTap: () {
+                                if (!formCategories.any(
+                                  (CategoryEntry category) =>
+                                      category.id == item.id,
+                                )) {
+                                  formCategories.add(item);
+                                }
+                                Navigator.pop(pickerContext, item.id);
+                              },
                             );
                           }),
                           const Divider(),
                           ListTile(
                             leading: const Icon(Icons.add_rounded),
-                            title: const Text('Create bill category'),
+                            title: const Text('Add other category'),
                             onTap: () async {
                               final created = await _addCategory(
                                 formCategories,
@@ -1313,7 +1240,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                         minimumSize: const Size.fromHeight(48),
                       ),
                       onPressed: () async {
-                        final DateTime? picked = await showDatePicker(
+                        final DateTime? picked = await showAppDatePicker(
                           context: context,
                           initialDate: dueDate,
                           firstDate: DateTime(2000),
@@ -1554,7 +1481,7 @@ class _BillsScreenState extends ConsumerState<BillsScreen> {
                   ),
                   TextButton.icon(
                     onPressed: () async {
-                      final DateTime? picked = await showDatePicker(
+                      final DateTime? picked = await showAppDatePicker(
                         context: context,
                         initialDate: paidAt,
                         firstDate: DateTime(2000),

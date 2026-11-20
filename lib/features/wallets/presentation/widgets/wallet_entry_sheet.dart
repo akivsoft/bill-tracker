@@ -5,6 +5,7 @@ import 'package:bill_tracker/features/transactions/domain/entities/financial_com
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:bill_tracker/features/transactions/domain/repositories/financial_repository.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -124,7 +125,7 @@ class _WalletEntrySheetState extends ConsumerState<WalletEntrySheet> {
   }
 
   Future<void> _pickDate() async {
-    final DateTime? picked = await showDatePicker(
+    final DateTime? picked = await showAppDatePicker(
       context: context,
       initialDate: _date,
       firstDate: DateTime(2000),

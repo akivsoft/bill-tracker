@@ -14,6 +14,8 @@ import 'package:bill_tracker/features/transactions/domain/entities/financial_com
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
+import 'package:bill_tracker/core/widgets/category_name_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -24,88 +26,6 @@ class LoansScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<LoansScreen> createState() => _LoansScreenState();
-}
-
-class _NewLoanCategoryDialog extends StatefulWidget {
-  const _NewLoanCategoryDialog({required this.existing, required this.onSave});
-
-  final List<CategoryEntry> existing;
-  final Future<CategoryEntry> Function(String name) onSave;
-
-  @override
-  State<_NewLoanCategoryDialog> createState() => _NewLoanCategoryDialogState();
-}
-
-class _NewLoanCategoryDialogState extends State<_NewLoanCategoryDialog> {
-  final TextEditingController _name = TextEditingController();
-  final GlobalKey<FormState> _form = GlobalKey<FormState>();
-  bool _saving = false;
-  String? _saveError;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('New loan category'),
-    content: Form(
-      key: _form,
-      child: TextFormField(
-        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-        controller: _name,
-        autofocus: true,
-        maxLength: 80,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        decoration: InputDecoration(
-          labelText: 'Category name',
-          errorText: _saveError,
-        ),
-        validator: (String? value) {
-          final String normalized = value?.trim() ?? '';
-          if (normalized.isEmpty) return 'Please enter a category name.';
-          if (widget.existing.any(
-            (CategoryEntry item) =>
-                item.name.trim().toLowerCase() == normalized.toLowerCase(),
-          )) {
-            return 'This category already exists.';
-          }
-          return null;
-        },
-      ),
-    ),
-    actions: <Widget>[
-      TextButton(
-        onPressed: _saving ? null : () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: _saving ? null : _save,
-        child: Text(_saving ? 'Saving…' : 'Save'),
-      ),
-    ],
-  );
-
-  Future<void> _save() async {
-    if (!(_form.currentState?.validate() ?? false)) return;
-    setState(() {
-      _saving = true;
-      _saveError = null;
-    });
-    try {
-      final CategoryEntry created = await widget.onSave(_name.text.trim());
-      if (mounted) Navigator.pop(context, created);
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _saveError = 'Could not save category. Please try again.';
-        });
-      }
-    }
-  }
 }
 
 class _LoansScreenState extends ConsumerState<LoansScreen> {
@@ -224,6 +144,24 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                         state != LoanStatus.cancelled,
                   'paid' =>
                     loan.archivedAt == null && state == LoanStatus.fullyPaid,
+                  'overdue' =>
+                    loan.archivedAt == null &&
+                        installments.any(
+                          (LoanInstallmentEntry item) =>
+                              item.loanId == loan.id &&
+                              item.status != 'settled' &&
+                              item.scheduledMinorUnits > item.paidMinorUnits &&
+                              _beforeToday(item.dueDate, today),
+                        ),
+                  'upcoming' =>
+                    loan.archivedAt == null &&
+                        installments.any(
+                          (LoanInstallmentEntry item) =>
+                              item.loanId == loan.id &&
+                              item.status != 'settled' &&
+                              item.scheduledMinorUnits > item.paidMinorUnits &&
+                              !_beforeToday(item.dueDate, today),
+                        ),
                   'cancelled' =>
                     loan.archivedAt == null && state == LoanStatus.cancelled,
                   'archived' => loan.archivedAt != null,
@@ -303,16 +241,19 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                         label: 'Active loans',
                         value: active.length.toString(),
                         icon: Icons.credit_score_outlined,
+                        onTap: () => setState(() => _loanFilter = 'active'),
                       ),
                       SummaryCard(
                         label: 'Overdue installments',
                         value: overdue.length.toString(),
                         icon: Icons.warning_amber_outlined,
+                        onTap: () => setState(() => _loanFilter = 'overdue'),
                       ),
                       SummaryCard(
                         label: 'Upcoming installments',
                         value: upcoming.length.toString(),
                         icon: Icons.event_outlined,
+                        onTap: () => setState(() => _loanFilter = 'upcoming'),
                       ),
                       SummaryCard(
                         label: 'Fully paid',
@@ -324,12 +265,47 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                             .length
                             .toString(),
                         icon: Icons.check_circle_outline,
+                        onTap: () => setState(() => _loanFilter = 'paid'),
                       ),
                     ],
                   );
                 },
               ),
               const SizedBox(height: AppSpacing.large),
+              if (_loanFilter == 'overdue' ||
+                  _loanFilter == 'upcoming') ...<Widget>[
+                Text(
+                  _loanFilter == 'overdue'
+                      ? 'Overdue installments'
+                      : 'Upcoming installments',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: AppSpacing.small),
+                if ((_loanFilter == 'overdue' ? overdue : upcoming).isEmpty)
+                  const AppCard(child: Text('No installments in this section.'))
+                else
+                  ...(_loanFilter == 'overdue' ? overdue : upcoming).map((
+                    LoanInstallmentEntry installment,
+                  ) {
+                    final LoanEntry? loan = loans
+                        .where(
+                          (LoanEntry item) => item.id == installment.loanId,
+                        )
+                        .firstOrNull;
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.event_outlined),
+                        title: Text(
+                          '${loan?.name ?? 'Loan'} · Installment ${installment.installmentNumber}',
+                        ),
+                        subtitle: Text(
+                          'Due ${DateFormat(dateFormat).format(installment.dueDate)} · Remaining ${Money(installment.scheduledMinorUnits - installment.paidMinorUnits, currencyCode: loan?.currencyCode ?? currency).format()}',
+                        ),
+                      ),
+                    );
+                  }),
+                const SizedBox(height: AppSpacing.medium),
+              ],
               Text('Providers', style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: AppSpacing.small),
               if (grouped.isEmpty)
@@ -630,7 +606,8 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
   Future<CategoryEntry?> _createLoanCategory(List<CategoryEntry> existing) =>
       showDialog<CategoryEntry>(
         context: context,
-        builder: (BuildContext context) => _NewLoanCategoryDialog(
+        builder: (BuildContext context) => CategoryNameDialog(
+          title: 'New loan category',
           existing: existing,
           onSave: (String name) async {
             final String id = await ref
@@ -739,6 +716,22 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
           : '30',
     );
     final notes = TextEditingController(text: loan?.notes ?? '');
+    bool repaymentCustomized = loan != null;
+    void recalculateRepayment(StateSetter update) {
+      if (repaymentCustomized) return;
+      final int? p = parseMinorUnits(principal.text);
+      final int? i = interest.text.trim().isEmpty
+          ? 0
+          : parseMinorUnits(interest.text);
+      if (p == null || i == null) return;
+      final String value = ((p + i) / 100).toStringAsFixed(2);
+      repaymentAmount.value = TextEditingValue(
+        text: value,
+        selection: TextSelection.collapsed(offset: value.length),
+      );
+      update(() {});
+    }
+
     String frequency = loan?.paymentFrequency.startsWith('custom:') == true
         ? 'custom'
         : loan?.paymentFrequency ?? 'monthly';
@@ -871,8 +864,15 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                                         setPickerState(() {});
                                       },
                                     ),
-                              onTap: () =>
-                                  Navigator.pop(pickerContext, item.id),
+                              onTap: () {
+                                if (!formCategories.any(
+                                  (CategoryEntry category) =>
+                                      category.id == item.id,
+                                )) {
+                                  formCategories.add(item);
+                                }
+                                Navigator.pop(pickerContext, item.id);
+                              },
                             );
                           }),
                           const Divider(),
@@ -1107,6 +1107,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       onTapOutside: (_) =>
                           FocusManager.instance.primaryFocus?.unfocus(),
                       controller: principal,
+                      onChanged: (_) => recalculateRepayment(setStateDialog),
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
@@ -1120,11 +1121,12 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       onTapOutside: (_) =>
                           FocusManager.instance.primaryFocus?.unfocus(),
                       controller: interest,
+                      onChanged: (_) => recalculateRepayment(setStateDialog),
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Total interest (PHP, optional)',
                       ),
                       validator: _moneyOptional,
@@ -1133,14 +1135,16 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                       onTapOutside: (_) =>
                           FocusManager.instance.primaryFocus?.unfocus(),
                       controller: repaymentAmount,
+                      onChanged: (_) => repaymentCustomized = true,
                       enabled: loan == null,
                       keyboardType: const TextInputType.numberWithOptions(
                         decimal: true,
                       ),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Total repayment amount (PHP)',
-                        helperText:
-                            'Leave blank to use principal plus interest.',
+                        helperText: repaymentCustomized
+                            ? 'Custom total repayment amount.'
+                            : 'Calculated from principal and interest. Edit to customize.',
                       ),
                       validator: _repaymentValidator,
                     ),
@@ -1381,10 +1385,18 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                 );
           return AlertDialog(
             title: Text(loan.name),
+            insetPadding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.medium,
+              vertical: AppSpacing.large,
+            ),
+            actionsOverflowDirection: VerticalDirection.down,
+            actionsOverflowButtonSpacing: AppSpacing.small,
             content: SizedBox(
               width: 620,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+              height: (MediaQuery.sizeOf(context).height - 180)
+                  .clamp(160.0, 560.0)
+                  .toDouble(),
+              child: ListView(
                 children: <Widget>[
                   Text(
                     '${loan.providerName} · ${_statusLabel(LoanStatusCalculator.status(loan, installments, today))}',
@@ -1407,6 +1419,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                   ),
                   DropdownButton<String>(
                     value: filter,
+                    isExpanded: true,
                     items:
                         const <String>[
                               'all',
@@ -1430,79 +1443,70 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                     onChanged: (String? v) =>
                         setDialogState(() => filter = v ?? 'all'),
                   ),
-                  Flexible(
-                    child: ListView(
-                      shrinkWrap: true,
-                      children: <Widget>[
-                        ...visible.map(
-                          (LoanInstallmentEntry item) => _InstallmentTile(
-                            loan: loan,
-                            installment: item,
-                            accounts: accounts,
-                            dateFormat: dateFormat,
-                            onPay: () => _recordPayment(loan, item, accounts),
-                            onEdit: () =>
-                                _editInstallment(loan, item, accounts),
-                            onRemove: () => _removeInstallment(item),
-                          ),
-                        ),
-                        if (history.isNotEmpty) ...<Widget>[
-                          const Divider(),
-                          Text(
-                            'Payment history',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          ...history.map((LoanPaymentEntry item) {
-                            final FinancialTransactionView? transaction =
-                                item.transactionId == null
-                                ? null
-                                : transactions
-                                      .where(
-                                        (FinancialTransactionView row) =>
-                                            row.id == item.transactionId,
-                                      )
-                                      .firstOrNull;
-                            final LoanInstallmentEntry? installment =
-                                item.installmentId == null
-                                ? null
-                                : installments
-                                      .where(
-                                        (LoanInstallmentEntry row) =>
-                                            row.id == item.installmentId,
-                                      )
-                                      .firstOrNull;
-                            final FinancialAccount? account =
-                                item.accountId == null
-                                ? null
-                                : accounts
-                                      .where(
-                                        (FinancialAccount row) =>
-                                            row.id == item.accountId,
-                                      )
-                                      .firstOrNull;
-                            return ListTile(
-                              dense: true,
-                              title: Text(
-                                'Installment ${installment?.installmentNumber ?? '—'} · ${Money(item.amountMinorUnits, currencyCode: loan.currencyCode).format()} · ${item.status == 'confirmed' ? 'Recorded' : 'Reversed'}',
-                              ),
-                              subtitle: Text(
-                                '${DateFormat(dateFormat).format(item.paidAt)} · ${account?.name ?? 'No wallet deduction'}${item.notes == null ? '' : ' · ${item.notes}'}',
-                              ),
-                              trailing: item.status == 'confirmed'
-                                  ? IconButton(
-                                      tooltip: 'Reverse payment',
-                                      icon: const Icon(Icons.undo),
-                                      onPressed: () => transaction == null
-                                          ? _reverseUnaccountedPayment(item)
-                                          : _reversePayment(transaction),
-                                    )
-                                  : null,
-                            );
-                          }),
-                        ],
-                      ],
+                  ...visible.map(
+                    (LoanInstallmentEntry item) => _InstallmentTile(
+                      loan: loan,
+                      installment: item,
+                      accounts: accounts,
+                      dateFormat: dateFormat,
+                      onPay: () => _recordPayment(loan, item, accounts),
+                      onEdit: () => _editInstallment(loan, item, accounts),
+                      onRemove: () => _removeInstallment(item),
                     ),
                   ),
+                  if (history.isNotEmpty) ...<Widget>[
+                    const Divider(),
+                    Text(
+                      'Payment history',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    ...history.map((LoanPaymentEntry item) {
+                      final FinancialTransactionView? transaction =
+                          item.transactionId == null
+                          ? null
+                          : transactions
+                                .where(
+                                  (FinancialTransactionView row) =>
+                                      row.id == item.transactionId,
+                                )
+                                .firstOrNull;
+                      final LoanInstallmentEntry? installment =
+                          item.installmentId == null
+                          ? null
+                          : installments
+                                .where(
+                                  (LoanInstallmentEntry row) =>
+                                      row.id == item.installmentId,
+                                )
+                                .firstOrNull;
+                      final FinancialAccount? account = item.accountId == null
+                          ? null
+                          : accounts
+                                .where(
+                                  (FinancialAccount row) =>
+                                      row.id == item.accountId,
+                                )
+                                .firstOrNull;
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          'Installment ${installment?.installmentNumber ?? '—'} · ${Money(item.amountMinorUnits, currencyCode: loan.currencyCode).format()} · ${item.status == 'confirmed' ? 'Recorded' : 'Reversed'}',
+                        ),
+                        subtitle: Text(
+                          '${DateFormat(dateFormat).format(item.paidAt)} · ${account?.name ?? 'No wallet deduction'}${item.notes == null ? '' : ' · ${item.notes}'}',
+                        ),
+                        trailing: item.status == 'confirmed'
+                            ? IconButton(
+                                tooltip: 'Reverse payment',
+                                icon: const Icon(Icons.undo),
+                                onPressed: () => transaction == null
+                                    ? _reverseUnaccountedPayment(item)
+                                    : _reversePayment(transaction),
+                              )
+                            : null,
+                      );
+                    }),
+                  ],
                 ],
               ),
             ),
@@ -1567,6 +1571,12 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
         builder: (BuildContext context, StateSetter update) => AlertDialog(
           title: const Text('Confirm installment payment'),
           scrollable: true,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.medium,
+            vertical: AppSpacing.large,
+          ),
+          actionsOverflowDirection: VerticalDirection.down,
+          actionsOverflowButtonSpacing: AppSpacing.small,
           content: Form(
             key: form,
             child: Column(
@@ -1592,19 +1602,26 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
                 ),
                 DropdownButtonFormField<String?>(
                   initialValue: accountId,
+                  isExpanded: true,
                   decoration: const InputDecoration(
                     labelText: 'Wallet treatment',
                   ),
                   items: <DropdownMenuItem<String?>>[
                     const DropdownMenuItem<String?>(
                       value: null,
-                      child: Text('Record payment only · no wallet deduction'),
+                      child: Text(
+                        'Record payment only · no wallet deduction',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     ...available.map(
                       (FinancialAccount a) => DropdownMenuItem(
                         value: a.id,
                         child: Text(
                           '${a.name} · ${Money(a.currentBalanceMinorUnits, currencyCode: a.currencyCode).format()}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
@@ -2143,7 +2160,7 @@ class _LoansScreenState extends ConsumerState<LoansScreen> {
     subtitle: Text(DateFormat.yMMMd().format(date)),
     trailing: const Icon(Icons.calendar_today_outlined),
     onTap: () async {
-      final DateTime? value = await showDatePicker(
+      final DateTime? value = await showAppDatePicker(
         context: context,
         initialDate: date,
         firstDate: DateTime(1900),

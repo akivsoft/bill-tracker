@@ -103,6 +103,14 @@ class AppTheme {
           borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
         ),
       ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: colors.surface,
+        headerBackgroundColor: colors.primary,
+        headerForegroundColor: colors.onPrimary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppSpacing.cardRadius),
+        ),
+      ),
     );
   }
 }

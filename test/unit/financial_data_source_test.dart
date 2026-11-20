@@ -132,6 +132,31 @@ void main() {
       await expectLater(dataSource.archiveCategory(categoryId), completes);
     });
 
+    test('archived expense categories preserve linked expenses', () async {
+      final String categoryId = await dataSource.createCategory(
+        CreateCategoryInput(name: 'Travel', categoryType: 'expense'),
+      );
+      final String expenseId = await dataSource.createExpense(
+        CreateExpenseInput(
+          title: 'Train ticket',
+          amountMinorUnits: php1000,
+          occurredAt: now,
+          categoryId: categoryId,
+        ),
+      );
+
+      await dataSource.archiveCategory(categoryId);
+
+      final ExpenseEntry expense = (await dataSource.watchExpenses().first)
+          .singleWhere((ExpenseEntry item) => item.id == expenseId);
+      final archived = await (database.select(
+        database.categories,
+      )..where((row) => row.id.equals(categoryId))).getSingle();
+      expect(expense.categoryId, categoryId);
+      expect(expense.title, 'Train ticket');
+      expect(archived.archivedAt, isNotNull);
+    });
+
     test(
       'transfer atomically debits and credits without changing total cash',
       () async {

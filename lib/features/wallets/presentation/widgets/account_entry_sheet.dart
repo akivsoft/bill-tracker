@@ -3,6 +3,7 @@ import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/core/widgets/async_save_button.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -120,7 +121,7 @@ class _AccountEntrySheetState extends State<AccountEntrySheet> {
   }
 
   Future<void> _pickDate({required bool statement}) async {
-    final DateTime? picked = await showDatePicker(
+    final DateTime? picked = await showAppDatePicker(
       context: context,
       initialDate:
           (statement ? _statementDate : _paymentDueDate) ?? DateTime.now(),

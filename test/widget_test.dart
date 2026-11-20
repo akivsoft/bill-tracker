@@ -273,8 +273,22 @@ void main() {
       await tester.tap(find.byType(TextFormField).at(1));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
-      await tester.ensureVisible(find.text('Create bill category'));
-      await tester.tap(find.text('Create bill category'));
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(AlertDialog).last,
+              matching: find.byType(InkWell),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Choose bill category'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.text('Add other category'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
+      await tester.tap(find.text('Add other category'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Save').last);
       await tester.pumpAndSettle();
@@ -284,8 +298,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
 
-      await tester.ensureVisible(find.text('Create bill category'));
-      await tester.tap(find.text('Create bill category'));
+      await tester.tap(find.text('Add other category'));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.byType(TextFormField).last,
@@ -294,11 +307,16 @@ void main() {
       await tester.tap(find.text('Save').last);
       await tester.pumpAndSettle();
       expect(find.text('My Custom Category'), findsOneWidget);
-      await tester.tap(find.text('My Custom Category'));
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(AlertDialog).last,
+              matching: find.byType(InkWell),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
       expect(find.text('Choose bill category'), findsOneWidget);
-      expect(find.text('My Custom Category'), findsNWidgets(2));
-      expect(find.text('Remove'), findsWidgets);
       final Finder removeCategoryButton = find.byTooltip(
         'Remove My Custom Category',
       );
@@ -345,10 +363,6 @@ void main() {
       await tester.tap(find.text('Cancel').last);
       await tester.pumpAndSettle();
       expect(find.text('Other / none'), findsOneWidget);
-      expect(
-        find.text('That category was removed. Choose another category.'),
-        findsOneWidget,
-      );
       expect(tester.takeException(), isNull);
       await tester.tap(find.text('Cancel').last);
       await tester.pumpAndSettle();
@@ -471,12 +485,11 @@ void main() {
       );
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('Loading categories…'), findsOneWidget);
-      expect(find.text('Create bill category'), findsNWidgets(2));
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
 
       categoryEvents.addError(StateError('Category storage unavailable'));
       await tester.pumpAndSettle();
-      expect(find.text('Categories could not be loaded.'), findsOneWidget);
+      expect(find.text('Could not load categories.'), findsOneWidget);
       expect(find.text('Retry'), findsWidgets);
 
       await tester.tap(find.text('Retry').last);
@@ -484,7 +497,7 @@ void main() {
       categoryEvents.add(const <CategoryEntry>[]);
       await tester.pumpAndSettle();
       expect(find.text('No bill categories available.'), findsOneWidget);
-      expect(find.text('Create bill category'), findsNWidgets(2));
+      expect(find.text('Add other category'), findsOneWidget);
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.text('Cancel').last);
@@ -603,23 +616,26 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.tap(find.byTooltip('Create category'));
-    await tester.pumpAndSettle();
-    await tester.enterText(
-      find.descendant(
-        of: find.byType(AlertDialog).last,
-        matching: find.byType(TextFormField),
-      ),
-      'Family loan',
+    Finder loanField(String label) => find.widgetWithText(TextFormField, label);
+    final Finder principalField = loanField('Original principal (PHP)');
+    final Finder interestField = loanField('Total interest (PHP, optional)');
+    final Finder repaymentField = loanField('Total repayment amount (PHP)');
+    await tester.ensureVisible(principalField);
+    await tester.enterText(principalField, '100.00');
+    await tester.ensureVisible(interestField);
+    await tester.enterText(interestField, '25.00');
+    expect(
+      tester.widget<TextFormField>(repaymentField).controller!.text,
+      '125.00',
     );
-    await tester.tap(find.text('Create').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Family loan'), findsOneWidget);
-    await tester.tap(find.byTooltip('Remove custom category'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Family loan').last);
-    await tester.pumpAndSettle();
-    expect(find.text('Family loan'), findsNothing);
+    await tester.ensureVisible(repaymentField);
+    await tester.enterText(repaymentField, '150.00');
+    await tester.ensureVisible(interestField);
+    await tester.enterText(interestField, '35.00');
+    expect(
+      tester.widget<TextFormField>(repaymentField).controller!.text,
+      '150.00',
+    );
 
     await _exerciseVisibleTextFields(tester);
     await tester.ensureVisible(
@@ -651,6 +667,238 @@ void main() {
     await tester.tap(find.text('Cancel').last);
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    await _disposeApp(tester, database);
+  });
+
+  testWidgets('loan picker adds and archives custom categories', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppDatabase database = AppDatabase(NativeDatabase.memory());
+    final LocalUserPreferencesRepository preferences =
+        LocalUserPreferencesRepository(database);
+    await preferences.load();
+    await preferences.setOnboardingComplete(true);
+    await preferences.setSetupComplete(true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: const MyFinanceApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final NavigationBar navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    navigationBar.onDestinationSelected!(3);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(AlertDialog).last,
+            matching: find.byType(InkWell),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Choose loan category'), findsOneWidget);
+    expect(find.byTooltip('Remove Personal'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.text('Add other category'),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Add other category'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, 'Custom Loan');
+    await tester.tap(find.text('Save').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Custom Loan'), findsOneWidget);
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(AlertDialog).last,
+            matching: find.byType(InkWell),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byTooltip('Remove Custom Loan'),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byTooltip('Remove Custom Loan'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove').last);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Remove Custom Loan'), findsNothing);
+    final category = await (database.select(
+      database.categories,
+    )..where((row) => row.name.equals('Custom Loan'))).getSingle();
+    expect(category.archivedAt, isNotNull);
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await _disposeApp(tester, database);
+  });
+
+  testWidgets('expense picker adds and archives custom categories', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 720);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final AppDatabase database = AppDatabase(NativeDatabase.memory());
+    final LocalUserPreferencesRepository preferences =
+        LocalUserPreferencesRepository(database);
+    await preferences.load();
+    await preferences.setOnboardingComplete(true);
+    await preferences.setSetupComplete(true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: const MyFinanceApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final NavigationBar navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    navigationBar.onDestinationSelected!(4);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Expenses'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(AlertDialog).last,
+            matching: find.byType(InkWell),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Choose expense category'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Add other category'),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Add other category'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField).last, 'Custom Trip');
+    await tester.tap(find.text('Save').last);
+    await tester.pumpAndSettle();
+    expect(find.text('Custom Trip'), findsOneWidget);
+
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(AlertDialog).last,
+            matching: find.byType(InkWell),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.byTooltip('Remove Custom Trip'),
+      100,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.byTooltip('Remove Custom Trip'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Remove').last);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Remove Custom Trip'), findsNothing);
+    final category = await (database.select(
+      database.categories,
+    )..where((row) => row.name.equals('Custom Trip'))).getSingle();
+    expect(category.archivedAt, isNotNull);
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel').last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await _disposeApp(tester, database);
+  });
+
+  testWidgets('installment payment dialog fits a compact viewport', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
+
+    final AppDatabase database = AppDatabase(NativeDatabase.memory());
+    final LocalUserPreferencesRepository preferences =
+        LocalUserPreferencesRepository(database);
+    await preferences.load();
+    await preferences.setOnboardingComplete(true);
+    await preferences.setSetupComplete(true);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [appDatabaseProvider.overrideWithValue(database)],
+        child: const MyFinanceApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final NavigationBar navigationBar = tester.widget<NavigationBar>(
+      find.byType(NavigationBar),
+    );
+    navigationBar.onDestinationSelected!(3);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byType(TextFormField).at(0),
+      'Compact test loan',
+    );
+    await tester.enterText(find.byType(TextFormField).at(1), 'Local lender');
+    await tester.enterText(find.byType(TextFormField).at(2), '25.00');
+    await tester.ensureVisible(find.text('Save').last);
+    await tester.tap(find.text('Save').last);
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Compact test loan'),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Compact test loan'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.byTooltip('Record payment'));
+    await tester.tap(find.byTooltip('Record payment'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm installment payment'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byType(TextFormField).first);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.enterText(find.byType(TextFormField).first, '2.08');
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.ensureVisible(find.text('Confirm payment'));
+    await tester.tap(find.text('Confirm payment'));
+    await tester.pumpAndSettle();
+    expect(find.text('Confirm installment payment'), findsNothing);
+    expect(tester.takeException(), isNull);
+    expect(await database.select(database.loanPayments).get(), hasLength(1));
     await _disposeApp(tester, database);
   });
 

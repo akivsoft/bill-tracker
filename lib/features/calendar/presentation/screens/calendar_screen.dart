@@ -1,5 +1,6 @@
 import 'package:bill_tracker/app/router/route_names.dart';
 import 'package:bill_tracker/app/theme/app_spacing.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/features/bills/domain/services/bill_schedule_calculator.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
@@ -572,7 +573,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 
   Future<void> _chooseRange() async {
-    final DateTimeRange? range = await showDateRangePicker(
+    final DateTimeRange? range = await showAppDateRangePicker(
       context: context,
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),

@@ -4,6 +4,7 @@ import 'package:bill_tracker/app/theme/app_spacing.dart';
 import 'package:bill_tracker/core/utils/money.dart';
 import 'package:bill_tracker/core/utils/dialog_route.dart';
 import 'package:bill_tracker/core/widgets/async_save_button.dart';
+import 'package:bill_tracker/core/widgets/category_name_dialog.dart';
 import 'package:bill_tracker/core/validators/money_input_parser.dart';
 import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
@@ -11,6 +12,7 @@ import 'package:bill_tracker/features/transactions/domain/entities/financial_rec
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
 import 'package:bill_tracker/features/transactions/domain/repositories/financial_repository.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -114,11 +116,6 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       appBar: AppBar(
         title: const Text('Expenses'),
         actions: <Widget>[
-          IconButton(
-            tooltip: 'Add category',
-            onPressed: _addCategory,
-            icon: const Icon(Icons.create_new_folder_outlined),
-          ),
           IconButton(
             tooltip: 'Add expense',
             onPressed: () => _editExpense(
@@ -287,12 +284,13 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: () async {
-                      final DateTimeRange? selected = await showDateRangePicker(
-                        context: context,
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2100),
-                        initialDateRange: _dateFilter,
-                      );
+                      final DateTimeRange? selected =
+                          await showAppDateRangePicker(
+                            context: context,
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2100),
+                            initialDateRange: _dateFilter,
+                          );
                       if (selected != null) {
                         setState(() => _dateFilter = selected);
                       }
@@ -301,7 +299,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     label: Text(
                       _dateFilter == null
                           ? 'Any dates'
-                          : '${DateFormat.Md().format(_dateFilter!.start)}–${DateFormat.Md().format(_dateFilter!.end)}',
+                          : '${DateFormat.Md().format(_dateFilter!.start)}â€“${DateFormat.Md().format(_dateFilter!.end)}',
                     ),
                   ),
                 ),
@@ -345,99 +343,111 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                 ),
               )
             else
-              ...visible.map(
-                (ExpenseEntry item) => Card(
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.shopping_bag_outlined),
-                    ),
-                    title: Text(
-                      item.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      '${categoryNames[item.categoryId] ?? 'Uncategorised'} · ${item.status} · ${DateFormat.yMMMd().format(item.occurredAt.toLocal())}${item.recurrenceConfiguration == null ? '' : ' · recurring template'}',
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 120),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          Money(
-                            item.amountMinorUnits,
-                            currencyCode: item.currencyCode,
-                          ).format(),
+              ...visible.map((ExpenseEntry item) {
+                final FinancialTransactionView? transaction =
+                    (transactions.asData?.value ??
+                            const <FinancialTransactionView>[])
+                        .where(
+                          (FinancialTransactionView row) =>
+                              <String>{
+                                'expense',
+                                'credit_card_purchase',
+                              }.contains(row.type) &&
+                              row.relatedRecordId == item.id,
+                        )
+                        .firstOrNull;
+                return Card(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.shopping_bag_outlined),
                         ),
+                        title: Text(
+                          item.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${categoryNames[item.categoryId] ?? 'Uncategorised'} · ${item.status} · ${DateFormat.yMMMd().format(item.occurredAt.toLocal())}${item.recurrenceConfiguration == null ? '' : ' · recurring template'}',
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              Money(
+                                item.amountMinorUnits,
+                                currencyCode: item.currencyCode,
+                              ).format(),
+                            ),
+                          ),
+                        ),
+                        onTap: () => _details(item, categoryNames),
                       ),
-                    ),
-                    onTap: () => _details(item, categoryNames),
-                  ),
-                ),
-              ),
-            ...visible
-                .where((ExpenseEntry item) => item.status == 'confirmed')
-                .map((ExpenseEntry expense) {
-                  final FinancialTransactionView? transaction =
-                      (transactions.asData?.value ??
-                              const <FinancialTransactionView>[])
-                          .where(
-                            (FinancialTransactionView item) =>
-                                <String>{
-                                  'expense',
-                                  'credit_card_purchase',
-                                }.contains(item.type) &&
-                                item.relatedRecordId == expense.id,
-                          )
-                          .firstOrNull;
-                  if (transaction == null) return const SizedBox.shrink();
-                  return Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => _reverseExpense(expense, transaction),
-                      icon: const Icon(Icons.undo_rounded),
-                      label: const Text('Reverse expense'),
-                    ),
-                  );
-                }),
-            ...visible
-                .where((ExpenseEntry item) => item.status == 'planned')
-                .map(
-                  (ExpenseEntry item) => Padding(
-                    padding: const EdgeInsets.only(bottom: AppSpacing.small),
-                    child: Wrap(
-                      alignment: WrapAlignment.end,
-                      spacing: AppSpacing.small,
-                      children: <Widget>[
-                        OutlinedButton.icon(
-                          onPressed: () => _editExpense(
-                            categoryRows,
-                            accounts.asData?.value ?? const [],
-                            item,
+                      if (item.status == 'confirmed' && transaction != null)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.medium,
+                            0,
+                            AppSpacing.medium,
+                            AppSpacing.small,
                           ),
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('Edit'),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => _confirmExpense(
-                            item,
-                            accounts.asData?.value ?? const [],
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: () =>
+                                  _reverseExpense(item, transaction),
+                              icon: const Icon(Icons.undo_rounded),
+                              label: const Text('Reverse expense'),
+                            ),
                           ),
-                          icon: const Icon(Icons.check),
-                          label: const Text('Record payment'),
                         ),
-                        IconButton(
-                          tooltip: 'Cancel expense',
-                          onPressed: () => _cancel(item),
-                          icon: const Icon(Icons.cancel_outlined),
+                      if (item.status == 'planned')
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(
+                            AppSpacing.medium,
+                            0,
+                            AppSpacing.medium,
+                            AppSpacing.small,
+                          ),
+                          child: Wrap(
+                            alignment: WrapAlignment.end,
+                            spacing: AppSpacing.small,
+                            children: <Widget>[
+                              OutlinedButton.icon(
+                                onPressed: () => _editExpense(
+                                  categoryRows,
+                                  accounts.asData?.value ?? const [],
+                                  item,
+                                ),
+                                icon: const Icon(Icons.edit_outlined),
+                                label: const Text('Edit'),
+                              ),
+                              TextButton.icon(
+                                onPressed: () => _confirmExpense(
+                                  item,
+                                  accounts.asData?.value ?? const [],
+                                ),
+                                icon: const Icon(Icons.check),
+                                label: const Text('Record payment'),
+                              ),
+                              IconButton(
+                                tooltip: 'Cancel expense',
+                                onPressed: () => _cancel(item),
+                                icon: const Icon(Icons.cancel_outlined),
+                              ),
+                            ],
+                          ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
-                ),
+                );
+              }),
           ],
         ),
       ),
@@ -468,40 +478,146 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     }
   }
 
-  Future<void> _addCategory() async {
-    final TextEditingController name = TextEditingController();
-    await showDialogAndWaitForExit<bool>(
-      context: context,
-      builder: (BuildContext context) => AlertDialog(
-        title: const Text('New expense category'),
-        content: TextField(
-          onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
-          controller: name,
-          autofocus: true,
-          maxLength: 80,
-          decoration: const InputDecoration(labelText: 'Category name'),
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          AsyncSaveButton(
-            label: 'Save',
-            validate: () => name.text.trim().isNotEmpty,
-            onSave: () => ref
+  Future<CategoryEntry?> _createExpenseCategory(List<CategoryEntry> existing) =>
+      showDialog<CategoryEntry>(
+        context: context,
+        builder: (BuildContext context) => CategoryNameDialog(
+          title: 'New expense category',
+          existing: existing,
+          onSave: (String name) async {
+            final String id = await ref
                 .read(financialRepositoryProvider)
                 .createCategory(
-                  CreateCategoryInput(
-                    name: name.text.trim(),
-                    categoryType: 'expense',
+                  CreateCategoryInput(name: name, categoryType: 'expense'),
+                );
+            ref.invalidate(expenseCategoriesProvider);
+            return CategoryEntry(
+              id: id,
+              name: name,
+              categoryType: 'expense',
+              isDefault: false,
+            );
+          },
+        ),
+      );
+  Future<void> _chooseExpenseCategory({
+    required BuildContext context,
+    required StateSetter setDialogState,
+    required List<CategoryEntry> categories,
+    required String? selectedId,
+    required void Function(String?) onSelected,
+  }) async {
+    final List<CategoryEntry> available = categories
+        .where((CategoryEntry item) => !item.isArchived)
+        .toList();
+    await showDialog<void>(
+      context: context,
+      builder: (BuildContext pickerContext) => StatefulBuilder(
+        builder: (BuildContext context, StateSetter setPickerState) => AlertDialog(
+          title: const Text('Choose expense category'),
+          content: SizedBox(
+            width: 400,
+            height: MediaQuery.sizeOf(context).height * 0.45,
+            child: ListView(
+              children: <Widget>[
+                ListTile(
+                  title: const Text('No category'),
+                  selected: selectedId == null,
+                  onTap: () {
+                    onSelected(null);
+                    Navigator.pop(pickerContext);
+                  },
+                ),
+                ...available.map(
+                  (CategoryEntry item) => ListTile(
+                    title: Text(item.name),
+                    selected: selectedId == item.id,
+                    trailing: item.isDefault
+                        ? null
+                        : IconButton(
+                            tooltip: 'Remove ${item.name}',
+                            icon: const Icon(Icons.delete_outline_rounded),
+                            onPressed: () async {
+                              final bool? remove = await showDialog<bool>(
+                                context: pickerContext,
+                                builder: (BuildContext confirmContext) =>
+                                    AlertDialog(
+                                      title: const Text('Remove category?'),
+                                      content: Text(
+                                        'â€œ${item.name}â€ will be hidden from new entries. Existing records will be kept.',
+                                      ),
+                                      actions: <Widget>[
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(
+                                            confirmContext,
+                                            false,
+                                          ),
+                                          child: const Text('Keep category'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () => Navigator.pop(
+                                            confirmContext,
+                                            true,
+                                          ),
+                                          child: const Text('Remove'),
+                                        ),
+                                      ],
+                                    ),
+                              );
+                              if (remove != true || !pickerContext.mounted) {
+                                return;
+                              }
+                              try {
+                                await ref
+                                    .read(financialRepositoryProvider)
+                                    .archiveCategory(item.id);
+                                available.removeWhere(
+                                  (CategoryEntry value) => value.id == item.id,
+                                );
+                                categories.removeWhere(
+                                  (CategoryEntry value) => value.id == item.id,
+                                );
+                                if (selectedId == item.id) onSelected(null);
+                                setPickerState(() {});
+                                setDialogState(() {});
+                              } catch (error) {
+                                _toast('Could not remove category: $error');
+                              }
+                            },
+                          ),
+                    onTap: () {
+                      onSelected(item.id);
+                      Navigator.pop(pickerContext);
+                    },
                   ),
                 ),
+                const Divider(),
+                ListTile(
+                  title: const Text('Add other category'),
+                  onTap: () async {
+                    final CategoryEntry? created = await _createExpenseCategory(
+                      available,
+                    );
+                    if (created == null || !pickerContext.mounted) return;
+                    available.add(created);
+                    categories.add(created);
+                    onSelected(created.id);
+                    setPickerState(() {});
+                    Navigator.pop(pickerContext);
+                  },
+                ),
+              ],
+            ),
           ),
-        ],
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(pickerContext),
+              child: const Text('Cancel'),
+            ),
+          ],
+        ),
       ),
     );
-    name.dispose();
   }
 
   Future<void> _editExpense(
@@ -532,6 +648,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     String? categoryId =
         expense?.categoryId ??
         (categories.isEmpty ? null : categories.first.id);
+    final List<CategoryEntry> formCategories = categories.toList();
     String? accountId = expense?.paymentAccountId;
     String? attachmentReference = expense?.attachmentReference;
     final form = GlobalKey<FormState>();
@@ -619,24 +736,40 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                             : null;
                       },
                     ),
-                    DropdownButtonFormField<String?>(
-                      initialValue: categoryId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Category'),
-                      items: <DropdownMenuItem<String?>>[
-                        const DropdownMenuItem(
-                          value: null,
-                          child: Text('No category'),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => _chooseExpenseCategory(
+                        context: context,
+                        setDialogState: setDialogState,
+                        categories: formCategories,
+                        selectedId: categoryId,
+                        onSelected: (String? value) =>
+                            setDialogState(() => categoryId = value),
+                      ),
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Category',
                         ),
-                        ...categories.map(
-                          (CategoryEntry item) => DropdownMenuItem(
-                            value: item.id,
-                            child: Text(item.name),
-                          ),
+                        child: Row(
+                          children: <Widget>[
+                            Expanded(
+                              child: Text(
+                                formCategories
+                                        .where(
+                                          (CategoryEntry item) =>
+                                              item.id == categoryId,
+                                        )
+                                        .map((CategoryEntry item) => item.name)
+                                        .firstOrNull ??
+                                    'No category',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_down),
+                          ],
                         ),
-                      ],
-                      onChanged: (String? value) =>
-                          setDialogState(() => categoryId = value),
+                      ),
                     ),
                     DropdownButtonFormField<String?>(
                       initialValue: accountId,
@@ -653,7 +786,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                           (FinancialAccount item) => DropdownMenuItem(
                             value: item.id,
                             child: Text(
-                              '${item.name} · ${item.accountType.replaceAll('_', ' ')}',
+                              '${item.name} Â· ${item.accountType.replaceAll('_', ' ')}',
                             ),
                           ),
                         ),
@@ -663,7 +796,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                     ),
                     TextButton.icon(
                       onPressed: () async {
-                        final DateTime? chosen = await showDatePicker(
+                        final DateTime? chosen = await showAppDatePicker(
                           context: context,
                           initialDate: date,
                           firstDate: DateTime(2000),
@@ -796,7 +929,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
                       (FinancialAccount item) => DropdownMenuItem(
                         value: item.id,
                         child: Text(
-                          '${item.name} · ${item.accountType.replaceAll('_', ' ')}',
+                          '${item.name} Â· ${item.accountType.replaceAll('_', ' ')}',
                         ),
                       ),
                     )
@@ -838,7 +971,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
       context: context,
       builder: (BuildContext context) => AlertDialog(
         title: const Text('Cancel planned expense?'),
-        content: Text('“${expense.title}” will be kept as cancelled.'),
+        content: Text('â€œ${expense.title}â€ will be kept as cancelled.'),
         actions: <Widget>[
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -907,7 +1040,7 @@ class _ExpensesScreenState extends ConsumerState<ExpensesScreen> {
     builder: (BuildContext context) => AlertDialog(
       title: Text(item.title),
       content: Text(
-        '${Money(item.amountMinorUnits, currencyCode: item.currencyCode).format()}\n${categories[item.categoryId] ?? 'Uncategorised'} · ${item.status}\n${DateFormat.yMMMd().format(item.occurredAt.toLocal())}${item.description == null ? '' : '\n\n${item.description}'}',
+        '${Money(item.amountMinorUnits, currencyCode: item.currencyCode).format()}\n${categories[item.categoryId] ?? 'Uncategorised'} Â· ${item.status}\n${DateFormat.yMMMd().format(item.occurredAt.toLocal())}${item.description == null ? '' : '\n\n${item.description}'}',
       ),
       actions: <Widget>[
         TextButton(

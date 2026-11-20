@@ -10,6 +10,7 @@ import 'package:bill_tracker/features/planner/domain/services/payday_allocation_
 import 'package:bill_tracker/features/transactions/domain/entities/financial_commands.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -662,7 +663,7 @@ class PlannerScreen extends ConsumerWidget {
                       trailing: IconButton(
                         icon: const Icon(Icons.calendar_month),
                         onPressed: () async {
-                          final DateTime? picked = await showDatePicker(
+                          final DateTime? picked = await showAppDatePicker(
                             context: context,
                             initialDate: payday,
                             firstDate: DateTime(2000),
@@ -849,7 +850,7 @@ class PlannerScreen extends ConsumerWidget {
                       trailing: IconButton(
                         icon: const Icon(Icons.calendar_month),
                         onPressed: () async {
-                          final DateTime? picked = await showDatePicker(
+                          final DateTime? picked = await showAppDatePicker(
                             context: context,
                             initialDate: date,
                             firstDate: DateTime(2000),
@@ -952,7 +953,7 @@ class PlannerScreen extends ConsumerWidget {
                           icon: const Icon(Icons.calendar_month),
                           onPressed: () async {
                             final DateTime current = billDueDate ?? date;
-                            final DateTime? picked = await showDatePicker(
+                            final DateTime? picked = await showAppDatePicker(
                               context: context,
                               initialDate: current,
                               firstDate: DateTime(2000),

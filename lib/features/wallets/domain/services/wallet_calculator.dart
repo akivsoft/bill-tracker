@@ -1,5 +1,3 @@
-import 'dart:collection';
-
 import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
 
@@ -92,8 +90,7 @@ final class WalletCalculator {
     );
   }
 
-  /// Produces points only where recorded transactions changed the balance.
-  /// Empty days and periods are omitted rather than filled with estimates.
+  /// Produces one verified balance point after each recorded transaction.
   static List<BalanceHistoryPoint> balanceHistory(
     FinancialAccount account,
     Iterable<FinancialTransactionView> transactions, {
@@ -130,27 +127,14 @@ final class WalletCalculator {
     int balance = isCreditCard(account)
         ? account.openingOutstandingCreditMinorUnits
         : account.openingBalanceMinorUnits;
-    final LinkedHashMap<DateTime, int> points = LinkedHashMap<DateTime, int>();
+    final List<BalanceHistoryPoint> points = <BalanceHistoryPoint>[];
     for (final FinancialTransactionView transaction in ordered) {
       balance += _balanceDelta(account, transaction, byId);
       final DateTime date = transaction.occurredAt;
       if (date.isBefore(start) || date.isAfter(end)) continue;
-      final DateTime bucket = switch (range) {
-        BalanceHistoryRange.daily ||
-        BalanceHistoryRange.custom => DateTime(date.year, date.month, date.day),
-        BalanceHistoryRange.weekly => _weekStart(date),
-        BalanceHistoryRange.monthly => DateTime(date.year, date.month),
-      };
-      points[bucket] = balance;
+      points.add(BalanceHistoryPoint(date: date, balanceMinorUnits: balance));
     }
-    return points.entries
-        .map(
-          (MapEntry<DateTime, int> entry) => BalanceHistoryPoint(
-            date: entry.key,
-            balanceMinorUnits: entry.value,
-          ),
-        )
-        .toList(growable: false);
+    return points;
   }
 
   static _Activity _activity(
@@ -239,11 +223,6 @@ final class WalletCalculator {
       default:
         return 0;
     }
-  }
-
-  static DateTime _weekStart(DateTime date) {
-    final DateTime day = DateTime(date.year, date.month, date.day);
-    return day.subtract(Duration(days: day.weekday - DateTime.monday));
   }
 }
 

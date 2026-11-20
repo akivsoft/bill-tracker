@@ -14,6 +14,7 @@ import 'package:bill_tracker/features/wallets/presentation/widgets/account_edit_
 import 'package:bill_tracker/features/wallets/presentation/widgets/wallet_entry_sheet.dart';
 import 'package:bill_tracker/shared/providers/app_providers.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -557,7 +558,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
 
   Future<void> _pickHistoryRange() async {
     final DateTime now = DateTime.now();
-    final DateTimeRange? selected = await showDateRangePicker(
+    final DateTimeRange? selected = await showAppDateRangePicker(
       context: context,
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + 1),
@@ -770,7 +771,7 @@ class _AccountDetailsScreenState extends ConsumerState<AccountDetailsScreen> {
 
   Future<void> _pickTransactionDateRange() async {
     final DateTime now = DateTime.now();
-    final DateTimeRange? selected = await showDateRangePicker(
+    final DateTimeRange? selected = await showAppDateRangePicker(
       context: context,
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + 1),

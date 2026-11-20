@@ -1,10 +1,7 @@
 import 'package:bill_tracker/app/theme/app_spacing.dart';
-import 'package:bill_tracker/features/bills/domain/services/bill_schedule_calculator.dart';
-import 'package:bill_tracker/features/dashboard/presentation/providers/financial_overview_providers.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:bill_tracker/features/notifications/data/local_notification_service.dart';
-import 'package:bill_tracker/features/notifications/domain/reminder_planner.dart';
-import 'package:bill_tracker/features/planner/domain/services/payday_schedule_calculator.dart';
-import 'package:bill_tracker/features/transactions/domain/entities/financial_records.dart';
+import 'package:bill_tracker/features/notifications/data/reminder_schedule_coordinator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -17,10 +14,15 @@ class NotificationsScreen extends ConsumerStatefulWidget {
       _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
-  final LocalNotificationService _service = LocalNotificationService();
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen>
+    with WidgetsBindingObserver {
+  final LocalNotificationService _service = LocalNotificationService.instance;
   ReminderPreferences _preferences = const ReminderPreferences();
+  NotificationDeviceState? _deviceState;
+  Set<String> _pendingKeys = <String>{};
   bool _loading = true;
+  bool _permissionBusy = false;
+  bool _scheduleBusy = false;
   String? _message;
 
   static const Map<String, String> _categories = <String, String>{
@@ -29,20 +31,240 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     'credit_cards': 'Credit card due dates',
     'paydays': 'Expected payday',
     'savings': 'Savings targets',
+    'calendar': 'Calendar reminder',
   };
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _load();
+  }
+
+  Widget _permissionCard() {
+    final NotificationDeviceState? device = _deviceState;
+    final NotificationPermissionState permission =
+        device?.permission ?? NotificationPermissionState.denied;
+    final bool granted = permission == NotificationPermissionState.granted;
+    final bool permanent =
+        permission == NotificationPermissionState.permanentlyDenied;
+    final String status = switch (permission) {
+      NotificationPermissionState.granted =>
+        'Notifications are allowed on this device.',
+      NotificationPermissionState.permanentlyDenied =>
+        'Notification permission is blocked. Enable it in device settings.',
+      NotificationPermissionState.unsupported =>
+        'Notifications are not supported on this device.',
+      NotificationPermissionState.denied =>
+        'Device permission is off. Enable notifications to receive reminders.',
+    };
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.medium),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              'Device notification access',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.xSmall),
+            Text(status),
+            if (granted && device?.exactAlarmsAllowed == false) ...<Widget>[
+              const SizedBox(height: AppSpacing.xSmall),
+              const Text(
+                'Exact-time delivery also needs Alarms and reminders access on this Android device.',
+              ),
+            ],
+            const SizedBox(height: AppSpacing.small),
+            if (!granted &&
+                permission != NotificationPermissionState.unsupported)
+              FilledButton.icon(
+                onPressed: _permissionBusy ? null : _enableNotifications,
+                icon: const Icon(Icons.notifications_active_outlined),
+                label: Text(
+                  permanent
+                      ? 'Open notification settings'
+                      : 'Enable notifications',
+                ),
+              )
+            else if (granted && device?.exactAlarmsAllowed == false)
+              OutlinedButton.icon(
+                onPressed: _permissionBusy
+                    ? null
+                    : () => _ensureNotificationAccess(requireExactAlarms: true),
+                icon: const Icon(Icons.alarm),
+                label: const Text('Allow exact-time reminders'),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<bool> _ensureNotificationAccess({
+    bool requireExactAlarms = false,
+  }) async {
+    NotificationDeviceState state = await _service.deviceState();
+    if (!mounted) return false;
+    if (state.permission == NotificationPermissionState.unsupported) {
+      if (mounted) {
+        setState(
+          () => _message = 'Notifications are not supported on this device.',
+        );
+      }
+      return false;
+    }
+    if (state.permission == NotificationPermissionState.permanentlyDenied) {
+      final bool? openSettings = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Enable notifications in settings'),
+          content: const Text(
+            'Notification permission was previously denied. Open this app’s notification settings and allow notifications, then return here.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Later'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Open settings'),
+            ),
+          ],
+        ),
+      );
+      if (openSettings == true) {
+        await _service.openNotificationSettings();
+        if (mounted) await _refreshDeviceState();
+      }
+      return false;
+    }
+    if (state.permission != NotificationPermissionState.granted) {
+      final bool? continueRequest = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Allow bill and loan reminders?'),
+          content: const Text(
+            'MyFinance can send local reminders for bills, loan installments, expected income, and the calendar reminder you choose. Reminders do not record payments or change balances.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+      if (continueRequest != true || !mounted) return false;
+      final bool granted = await _service.requestPermission();
+      if (!mounted) return false;
+      state = await _service.deviceState();
+      if (mounted) setState(() => _deviceState = state);
+      if (!granted) {
+        if (mounted) {
+          setState(
+            () => _message =
+                state.permission ==
+                    NotificationPermissionState.permanentlyDenied
+                ? 'Permission is blocked. Use Open notification settings to enable it.'
+                : 'Notification permission was denied. You can enable it later in device settings.',
+          );
+        }
+        return false;
+      }
+    }
+    if (requireExactAlarms && !state.exactAlarmsAllowed) {
+      if (!mounted) return false;
+      final bool? continueRequest = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext dialogContext) => AlertDialog(
+          title: const Text('Allow exact reminder times?'),
+          content: const Text(
+            'Android requires Alarms and reminders access to deliver notifications at the selected time, including while the device is idle.',
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+      if (continueRequest != true || !mounted) return false;
+      final bool allowed = await _service.requestExactAlarmAccess();
+      if (!mounted) return false;
+      state = await _service.deviceState();
+      if (mounted) setState(() => _deviceState = state);
+      if (!allowed) {
+        if (mounted) {
+          setState(
+            () => _message =
+                'Exact alarms are not enabled. Allow Alarms and reminders in device settings, then try again.',
+          );
+        }
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _enableNotifications() async {
+    setState(() => _permissionBusy = true);
+    try {
+      final bool allowed = await _ensureNotificationAccess();
+      if (allowed && mounted) {
+        await ReminderScheduleCoordinator.synchronize(ref);
+        final Set<String> pending = await _service.pendingKeys();
+        if (mounted) {
+          setState(() {
+            _pendingKeys = pending;
+            _message =
+                'Notification permission is enabled. ${pending.length} reminder${pending.length == 1 ? '' : 's'} currently scheduled.';
+          });
+        }
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _message = 'Could not request notification permission: $error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _permissionBusy = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _refreshDeviceState();
   }
 
   Future<void> _load() async {
     try {
       final ReminderPreferences preferences = await _service.loadPreferences();
+      final NotificationDeviceState deviceState = await _service.deviceState();
+      final Set<String> pendingKeys = await _service.pendingKeys();
       if (mounted) {
         setState(() {
           _preferences = preferences;
+          _deviceState = deviceState;
+          _pendingKeys = pendingKeys;
           _loading = false;
         });
       }
@@ -56,27 +278,28 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
+  Future<void> _refreshDeviceState() async {
+    try {
+      final NotificationDeviceState state = await _service.deviceState();
+      final Set<String> pending = await _service.pendingKeys();
+      if (mounted) {
+        setState(() {
+          _deviceState = state;
+          _pendingKeys = pending;
+        });
+        await ReminderScheduleCoordinator.synchronize(ref);
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _message = 'Could not check notification access: $error',
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final List<BillEntry> bills =
-        ref.watch(billsOverviewProvider).asData?.value ?? const <BillEntry>[];
-    final List<BillPaymentEntry> payments =
-        ref.watch(billPaymentsOverviewProvider).asData?.value ??
-        const <BillPaymentEntry>[];
-    final List<LoanEntry> loans =
-        ref.watch(loansOverviewProvider).asData?.value ?? const <LoanEntry>[];
-    final List<LoanInstallmentEntry> installments =
-        ref.watch(installmentsOverviewProvider).asData?.value ??
-        const <LoanInstallmentEntry>[];
-    final List<FinancialAccount> accounts =
-        ref.watch(walletManagementAccountsProvider).asData?.value ??
-        const <FinancialAccount>[];
-    final List<PaydayScheduleEntry> paydays =
-        ref.watch(paydaySchedulesProvider).asData?.value ??
-        const <PaydayScheduleEntry>[];
-    final List<SavingsGoalEntry> goals =
-        ref.watch(savingsGoalsOverviewProvider).asData?.value ??
-        const <SavingsGoalEntry>[];
     return Scaffold(
       appBar: AppBar(title: const Text('Notifications and reminders')),
       body: _loading
@@ -88,19 +311,38 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                   'Reminders are local to this device. They never record payments or change balances. Your operating system may suppress notifications based on device settings.',
                 ),
                 const SizedBox(height: AppSpacing.medium),
+                _permissionCard(),
+                const SizedBox(height: AppSpacing.small),
                 Card(
                   child: Column(
                     children: <Widget>[
                       for (final MapEntry<String, String> entry
                           in _categories.entries)
                         SwitchListTile(
+                          secondary: Icon(
+                            entry.key == 'calendar'
+                                ? Icons.calendar_month_outlined
+                                : Icons.notifications_outlined,
+                          ),
                           title: Text(entry.value),
                           value: _preferences.enabledCategories.contains(
                             entry.key,
                           ),
-                          onChanged: (enabled) => _toggle(entry.key, enabled),
+                          onChanged: _permissionBusy
+                              ? null
+                              : (enabled) => _toggle(entry.key, enabled),
                         ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.small),
+                OutlinedButton.icon(
+                  onPressed: _chooseCalendarReminder,
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  label: Text(
+                    _preferences.calendarReminderAt == null
+                        ? 'Choose calendar reminder date and time'
+                        : 'Calendar reminder · ${DateFormat.yMMMd().add_jm().format(_preferences.calendarReminderAt!.toLocal())}',
                   ),
                 ),
                 const SizedBox(height: AppSpacing.small),
@@ -129,19 +371,16 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                 ),
                 const SizedBox(height: AppSpacing.small),
                 FilledButton.icon(
-                  onPressed: () => _schedule(
-                    bills: bills,
-                    payments: payments,
-                    loans: loans,
-                    installments: installments,
-                    accounts: accounts,
-                    paydays: paydays,
-                    goals: goals,
-                  ),
-                  icon: const Icon(Icons.notifications_active_outlined),
-                  label: const Text(
-                    'Request permission and schedule reminders',
-                  ),
+                  onPressed: _scheduleBusy || _permissionBusy
+                      ? null
+                      : _schedule,
+                  icon: _scheduleBusy
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.notifications_active_outlined),
+                  label: const Text('Schedule or update reminders'),
                 ),
                 if (_message != null)
                   Padding(
@@ -174,13 +413,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                             subtitle: Text(
                               'Scheduled ${DateFormat.yMMMd().add_jm().format(DateTime.tryParse(item['scheduled_at'] as String? ?? '')?.toLocal() ?? DateTime.now())}',
                             ),
-                            trailing: item['read'] == true
+                            trailing: _pendingKeys.contains(item['key'])
+                                ? const Text('Scheduled')
+                                : item['state'] == 'disabled' ||
+                                      item['state'] == 'cancelled'
+                                ? const Text('Disabled')
+                                : item['read'] == true
                                 ? const Text('Read')
-                                : TextButton(
-                                    onPressed: () =>
-                                        _markRead(item['key'] as String? ?? ''),
-                                    child: const Text('Mark read'),
-                                  ),
+                                : const Text('Sent or no longer scheduled'),
                           ),
                       ],
                     ),
@@ -195,25 +435,67 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     int? daysBefore,
     int? hour,
     int? minute,
+    DateTime? calendarReminderAt,
   }) => ReminderPreferences(
     enabledCategories: categories ?? _preferences.enabledCategories,
     daysBefore: daysBefore ?? _preferences.daysBefore,
     hour: hour ?? _preferences.hour,
     minute: minute ?? _preferences.minute,
+    calendarReminderAt: calendarReminderAt ?? _preferences.calendarReminderAt,
     history: _preferences.history,
   );
 
   Future<void> _save(ReminderPreferences value) async {
-    await _service.savePreferences(value);
-    if (mounted) {
-      setState(() {
-        _preferences = value;
-        _message = 'Reminder preferences saved on this device.';
-      });
+    try {
+      await _service.savePreferences(value);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _message = 'Could not save reminder preferences: $error',
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    setState(() {
+      _preferences = value;
+      _message = 'Reminder preferences saved on this device.';
+    });
+    try {
+      await ReminderScheduleCoordinator.synchronize(ref);
+      final Set<String> pending = await _service.pendingKeys();
+      if (mounted) setState(() => _pendingKeys = pending);
+    } catch (error) {
+      if (mounted) {
+        setState(
+          () => _message =
+              'Preferences were saved, but reminder schedules could not be updated: $error',
+        );
+      }
     }
   }
 
   Future<void> _toggle(String category, bool enabled) async {
+    final NotificationDeviceState current = await _service.deviceState();
+    if (!mounted) return;
+    if (enabled && current.permission != NotificationPermissionState.granted) {
+      setState(() => _permissionBusy = true);
+      final bool access;
+      try {
+        access = await _ensureNotificationAccess();
+      } catch (error) {
+        if (mounted) {
+          setState(
+            () =>
+                _message = 'Could not request notification permission: $error',
+          );
+        }
+        return;
+      } finally {
+        if (mounted) setState(() => _permissionBusy = false);
+      }
+      if (!access) return;
+    }
     final Set<String> categories = <String>{..._preferences.enabledCategories};
     if (enabled) {
       categories.add(category);
@@ -221,6 +503,14 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
       categories.remove(category);
     }
     await _save(_copy(categories: categories));
+    if (!enabled) {
+      if (mounted) {
+        setState(
+          () => _message =
+              '${_categories[category]} reminders disabled and pending schedules updated.',
+        );
+      }
+    }
   }
 
   Future<void> _chooseTime() async {
@@ -236,211 +526,65 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
-  Future<void> _markRead(String key) async {
-    await _service.markRead(key);
-    await _load();
+  Future<void> _chooseCalendarReminder() async {
+    final DateTime now = DateTime.now();
+    final DateTime today = DateTime(now.year, now.month, now.day);
+    final DateTime saved =
+        _preferences.calendarReminderAt ?? now.add(const Duration(days: 1));
+    final DateTime initial = saved.isBefore(today) ? today : saved;
+    final DateTime? date = await showAppDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: today,
+      lastDate: DateTime(2100),
+    );
+    if (date == null || !mounted) return;
+    final TimeOfDay? time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null || !mounted) return;
+    final DateTime scheduled = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    await _save(_copy(calendarReminderAt: scheduled));
   }
 
-  Future<void> _schedule({
-    required List<BillEntry> bills,
-    required List<BillPaymentEntry> payments,
-    required List<LoanEntry> loans,
-    required List<LoanInstallmentEntry> installments,
-    required List<FinancialAccount> accounts,
-    required List<PaydayScheduleEntry> paydays,
-    required List<SavingsGoalEntry> goals,
-  }) async {
+  Future<void> _schedule() async {
+    if (_scheduleBusy) return;
+    setState(() => _scheduleBusy = true);
     try {
-      final bool allowed = await _service.requestPermission();
-      if (!allowed) {
-        setState(
-          () => _message =
-              'Notification permission was not granted. Change it in device settings to receive reminders.',
+      final bool allowed = await _ensureNotificationAccess();
+      if (!allowed || !mounted) return;
+      final bool hasReminders =
+          await ReminderScheduleCoordinator.hasSchedulableReminders(ref);
+      if (!mounted) return;
+      if (hasReminders) {
+        final bool exactAlarmsAllowed = await _ensureNotificationAccess(
+          requireExactAlarms: true,
         );
-        return;
+        if (!exactAlarmsAllowed || !mounted) return;
       }
-      final DateTime now = DateTime.now();
-      final DateTime horizon = now.add(const Duration(days: 120));
-      final List<ReminderCandidate> candidates = <ReminderCandidate>[];
-      for (final BillEntry bill in bills.where((item) => item.isActive)) {
-        final List<DateTime> dates = BillScheduleCalculator.occurrences(
-          anchor: bill.dueDate,
-          frequency: bill.frequency,
-          start: DateTime(now.year, now.month, now.day),
-          end: horizon,
-        );
-        for (final DateTime due in dates) {
-          final BillOccurrence occurrence = BillOccurrence(
-            bill: bill,
-            dueDate: due,
-          );
-          final BillOccurrenceStatus status = occurrence.status(payments, now);
-          if (status == BillOccurrenceStatus.paid ||
-              status == BillOccurrenceStatus.skipped ||
-              status == BillOccurrenceStatus.cancelled) {
-            continue;
-          }
-          candidates.add(
-            ReminderCandidate(
-              key: 'bill:${bill.id}:${DateFormat('yyyy-MM-dd').format(due)}',
-              title: status == BillOccurrenceStatus.overdue
-                  ? 'Overdue bill'
-                  : 'Upcoming bill',
-              body: status == BillOccurrenceStatus.overdue
-                  ? 'An overdue bill needs review in MyFinance.'
-                  : 'A bill payment is coming up. Open MyFinance to review.',
-              category: 'bills',
-              dueAt: due,
-              isOverdue: status == BillOccurrenceStatus.overdue,
-            ),
-          );
-        }
-        if (bill.frequency == 'one_time' && bill.dueDate.isBefore(now)) {
-          final BillOccurrence occurrence = BillOccurrence(
-            bill: bill,
-            dueDate: bill.dueDate,
-          );
-          if (occurrence.status(payments, now) ==
-              BillOccurrenceStatus.overdue) {
-            candidates.add(
-              ReminderCandidate(
-                key:
-                    'bill:${bill.id}:${DateFormat('yyyy-MM-dd').format(bill.dueDate)}',
-                title: 'Overdue bill',
-                body: 'An overdue bill needs review in MyFinance.',
-                category: 'bills',
-                dueAt: now,
-                isOverdue: true,
-              ),
-            );
-          }
-        }
-      }
-      final Set<String> activeLoans = loans
-          .where(
-            (item) =>
-                item.archivedAt == null &&
-                item.status != 'paid' &&
-                item.status != 'cancelled',
-          )
-          .map((item) => item.id)
-          .toSet();
-      final Map<String, LoanEntry> loanById = <String, LoanEntry>{
-        for (final LoanEntry loan in loans) loan.id: loan,
-      };
-      for (final LoanInstallmentEntry item in installments.where(
-        (row) =>
-            activeLoans.contains(row.loanId) &&
-            row.status != 'paid' &&
-            row.status != 'settled',
-      )) {
-        final LoanEntry? loan = loanById[item.loanId];
-        if (loan == null) continue;
-        final bool overdue = item.dueDate.isBefore(
-          DateTime(now.year, now.month, now.day),
-        );
-        candidates.add(
-          ReminderCandidate(
-            key:
-                'loan:${item.id}:${DateFormat('yyyy-MM-dd').format(item.dueDate)}',
-            title: overdue
-                ? 'Overdue loan installment'
-                : 'Upcoming loan installment',
-            body: overdue
-                ? 'An overdue installment needs review in MyFinance.'
-                : 'A loan installment is coming up. Open MyFinance to review.',
-            category: 'loans',
-            dueAt: overdue ? now : item.dueDate,
-            isOverdue: overdue,
-          ),
-        );
-      }
-      for (final FinancialAccount account in accounts.where(
-        (item) =>
-            item.isActive &&
-            item.accountType == 'credit_card' &&
-            item.paymentDueDate != null,
-      )) {
-        final DateTime due = account.paymentDueDate!;
-        final DateTime nextDue =
-            DateTime(
-              now.year,
-              due.month,
-              due.day,
-            ).isBefore(DateTime(now.year, now.month, now.day))
-            ? DateTime(now.year + 1, due.month, due.day)
-            : DateTime(now.year, due.month, due.day);
-        candidates.add(
-          ReminderCandidate(
-            key:
-                'card:${account.id}:${DateFormat('yyyy-MM-dd').format(nextDue)}',
-            title: 'Credit card payment due',
-            body:
-                'A credit card payment is coming up. Open MyFinance to review.',
-            category: 'credit_cards',
-            dueAt: nextDue,
-          ),
-        );
-      }
-      for (final PaydayScheduleEntry payday in paydays.where(
-        (item) => item.isActive && item.status != 'received',
-      )) {
-        for (final DateTime date in PaydayScheduleCalculator.occurrences(
-          anchor: payday.paydayDate,
-          frequency: payday.frequency,
-          start: now,
-          end: horizon,
-        )) {
-          candidates.add(
-            ReminderCandidate(
-              key:
-                  'payday:${payday.id}:${DateFormat('yyyy-MM-dd').format(date)}',
-              title: 'Expected payday',
-              body:
-                  'An expected income date is coming up. Open MyFinance to review.',
-              category: 'paydays',
-              dueAt: date,
-            ),
-          );
-        }
-      }
-      for (final SavingsGoalEntry goal in goals.where(
-        (item) =>
-            item.status == 'active' &&
-            item.targetDate != null &&
-            item.contributionSchedule != null,
-      )) {
-        if (!goal.targetDate!.isBefore(now) &&
-            !goal.targetDate!.isAfter(horizon)) {
-          candidates.add(
-            ReminderCandidate(
-              key:
-                  'savings:${goal.id}:${DateFormat('yyyy-MM-dd').format(goal.targetDate!)}',
-              title: 'Savings goal reminder',
-              body:
-                  'A configured savings target date is coming up. Open MyFinance to review.',
-              category: 'savings',
-              dueAt: goal.targetDate!,
-            ),
-          );
-        }
-      }
-      final int count = await _service.schedule(
-        candidates: candidates,
-        preferences: _preferences,
-        permissionAlreadyGranted: true,
-      );
+      await ReminderScheduleCoordinator.synchronize(ref);
+      final Set<String> pending = await _service.pendingKeys();
       await _load();
       if (mounted) {
-        setState(
-          () => _message =
-              '$count new reminder${count == 1 ? '' : 's'} scheduled. Existing reminders were not duplicated.',
-        );
+        setState(() {
+          _pendingKeys = pending;
+          _message =
+              'Reminder schedules updated. ${pending.length} reminder${pending.length == 1 ? '' : 's'} currently scheduled.';
+        });
       }
     } catch (error) {
       if (mounted) {
         setState(() => _message = 'Could not schedule reminders: $error');
       }
+    } finally {
+      if (mounted) setState(() => _scheduleBusy = false);
     }
   }
 }

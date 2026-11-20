@@ -45,7 +45,9 @@ abstract final class ReminderPlanner {
         continue;
       }
       final DateTime due = item.dueAt.toLocal();
-      DateTime at = item.isOverdue
+      DateTime at = item.category == 'calendar'
+          ? due
+          : item.isOverdue
           ? now.add(const Duration(minutes: 1))
           : DateTime(due.year, due.month, due.day - daysBefore, hour, minute);
       if (at.isBefore(now)) continue;

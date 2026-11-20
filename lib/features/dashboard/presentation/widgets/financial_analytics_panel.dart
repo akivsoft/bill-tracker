@@ -12,6 +12,7 @@ import 'package:bill_tracker/features/transactions/domain/entities/financial_rec
 import 'package:bill_tracker/features/transactions/domain/entities/financial_values.dart';
 import 'package:bill_tracker/features/transactions/domain/services/financial_calculator.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:bill_tracker/core/utils/app_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -244,7 +245,7 @@ class _FinancialAnalyticsPanelState
                       onChanged: (value) async {
                         if (value == _Period.custom) {
                           final DateTimeRange? picked =
-                              await showDateRangePicker(
+                              await showAppDateRangePicker(
                                 context: context,
                                 firstDate: DateTime(2000),
                                 lastDate: DateTime(2100),
